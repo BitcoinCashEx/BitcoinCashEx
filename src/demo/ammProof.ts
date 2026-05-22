@@ -15,6 +15,14 @@ export interface DemoAmmTradeMarker {
   readonly type: typeof demoAmmTradeMarkerType;
 }
 
+export interface DemoAmmTradeProofInput {
+  readonly category: string;
+  readonly inputAmount: string;
+  readonly outputAmount: string;
+  readonly side: DemoAmmTradeSide;
+  readonly txid: string;
+}
+
 export interface DemoAmmPoolUtxo {
   readonly active: boolean;
   readonly height: number;
@@ -28,6 +36,25 @@ export interface DemoAmmPoolSummary {
   readonly bchReserveSats: string;
   readonly tokenCategory: string;
   readonly tokenReserve: string;
+  readonly txid: string;
+}
+
+export interface DemoAmmTransitionAudit {
+  readonly actualBchReserveSats: string;
+  readonly actualTokenReserve: string;
+  readonly category: string;
+  readonly constantProductAfter: string;
+  readonly constantProductBefore: string;
+  readonly expectedBchReserveSats: string;
+  readonly expectedTokenReserve: string;
+  readonly inputAmount: string;
+  readonly nextPoolTxid: string;
+  readonly outputAmount: string;
+  readonly poolSpendConfirmed: boolean;
+  readonly previousPoolTxid: string;
+  readonly problems: readonly string[];
+  readonly side: DemoAmmTradeSide;
+  readonly status: "failed" | "verified";
   readonly txid: string;
 }
 
@@ -213,6 +240,80 @@ export const quoteDemoAmmSell = (
     BigInt(pool.valueSats),
     feeBps
   );
+};
+
+export const auditDemoAmmTradeTransition = ({
+  nextPool,
+  poolSpendConfirmed,
+  previousPool,
+  tokenToBchPoolFeeSats = demoAmmSwapFeeSats,
+  trade
+}: {
+  readonly nextPool: DemoAmmPoolUtxo;
+  readonly poolSpendConfirmed: boolean;
+  readonly previousPool: DemoAmmPoolUtxo;
+  readonly tokenToBchPoolFeeSats?: bigint;
+  readonly trade: DemoAmmTradeProofInput;
+}): DemoAmmTransitionAudit => {
+  requireDemoAmmPoolTokenData(previousPool.tokenData);
+  requireDemoAmmPoolTokenData(nextPool.tokenData);
+
+  const previousBchReserve = BigInt(previousPool.valueSats);
+  const previousTokenReserve = BigInt(previousPool.tokenData.amount);
+  const nextBchReserve = BigInt(nextPool.valueSats);
+  const nextTokenReserve = BigInt(nextPool.tokenData.amount);
+  const inputAmount = BigInt(trade.inputAmount);
+  const outputAmount = BigInt(trade.outputAmount);
+  const problems: string[] = [];
+
+  if (previousPool.tokenData.category.toLowerCase() !== trade.category.toLowerCase()) {
+    problems.push("Previous pool category does not match the trade marker.");
+  }
+  if (nextPool.tokenData.category.toLowerCase() !== trade.category.toLowerCase()) {
+    problems.push("Next pool category does not match the trade marker.");
+  }
+  if (!poolSpendConfirmed) {
+    problems.push("Swap transaction does not spend the previous pool UTXO.");
+  }
+
+  const expectedBchReserve =
+    trade.side === "BCH_TO_TOKEN"
+      ? previousBchReserve + inputAmount
+      : previousBchReserve - outputAmount - tokenToBchPoolFeeSats;
+  const expectedTokenReserve =
+    trade.side === "BCH_TO_TOKEN" ? previousTokenReserve - outputAmount : previousTokenReserve + inputAmount;
+
+  if (expectedBchReserve !== nextBchReserve) {
+    problems.push("Next BCH reserve does not match the trade marker delta.");
+  }
+  if (expectedTokenReserve !== nextTokenReserve) {
+    problems.push("Next token reserve does not match the trade marker delta.");
+  }
+
+  const constantProductBefore = previousBchReserve * previousTokenReserve;
+  const constantProductAfter = nextBchReserve * nextTokenReserve;
+  if (constantProductAfter < constantProductBefore) {
+    problems.push("Constant-product invariant decreased after the trade.");
+  }
+
+  return {
+    actualBchReserveSats: nextBchReserve.toString(),
+    actualTokenReserve: nextTokenReserve.toString(),
+    category: trade.category.toLowerCase(),
+    constantProductAfter: constantProductAfter.toString(),
+    constantProductBefore: constantProductBefore.toString(),
+    expectedBchReserveSats: expectedBchReserve.toString(),
+    expectedTokenReserve: expectedTokenReserve.toString(),
+    inputAmount: trade.inputAmount,
+    nextPoolTxid: nextPool.txid,
+    outputAmount: trade.outputAmount,
+    poolSpendConfirmed,
+    previousPoolTxid: previousPool.txid,
+    problems,
+    side: trade.side,
+    status: problems.length === 0 ? "verified" : "failed",
+    txid: trade.txid
+  };
 };
 
 export const selectDemoAmmSwapFundingUtxo = <Utxo extends { readonly amountSats: bigint }>(

@@ -2,6 +2,7 @@ import { hexToBin, privateKeyToP2pkhCashAddress, privateKeyToP2pkhLockingBytecod
 import { loadConfig } from "../config.js";
 import { BchnRpcClient } from "../node/rpc.js";
 import {
+  auditDemoAmmTradeTransition,
   demoAmmSwapFeeSats,
   demoAmmTokenOutputDustSats,
   demoAmmWalletChangeDustSats,
@@ -15,7 +16,8 @@ import {
   selectDemoAmmSellTokenUtxo,
   selectDemoAmmSwapFundingUtxo,
   summarizeDemoAmmPool,
-  type DemoAmmPoolUtxo
+  type DemoAmmPoolUtxo,
+  type DemoAmmTransitionAudit
 } from "./ammProof.js";
 import { encodeCashVmProofText, extractFinalPushDataHex, parseCashVmProofScript } from "./cashVmProof.js";
 import { eventHexToText, eventTextToHex, parseOpReturnEvent, replayDemoEvents, type DemoChainEvent, type DemoEventInput } from "./events.js";
@@ -53,6 +55,7 @@ interface BlockTx {
       readonly hex: string;
     };
     readonly txid?: string;
+    readonly vout?: number;
   }[];
   readonly vout: readonly {
     readonly n: number;
@@ -108,6 +111,7 @@ export interface DemoChainSnapshot {
   readonly pools: readonly DemoAmmPoolUtxo[];
   readonly replay: ReturnType<typeof replayDemoEvents>;
   readonly tokenProofs: readonly DemoTokenProof[];
+  readonly transitionAudits: readonly DemoAmmTransitionAuditProof[];
   readonly trades: readonly DemoAmmTradeProof[];
   readonly vmProofs: readonly DemoCashVmProof[];
   readonly wallet: {
@@ -132,6 +136,10 @@ export interface DemoAmmTradeProof {
   readonly outputAmount: string;
   readonly side: "BCH_TO_TOKEN" | "TOKEN_TO_BCH";
   readonly txid: string;
+}
+
+export interface DemoAmmTransitionAuditProof extends DemoAmmTransitionAudit {
+  readonly height: number;
 }
 
 export interface DemoCashVmProof {
@@ -284,6 +292,59 @@ export const scanDemoAmmTrades = async (): Promise<readonly DemoAmmTradeProof[]>
   return trades;
 };
 
+export const scanDemoAmmTransitionAudits = async (): Promise<readonly DemoAmmTransitionAuditProof[]> => {
+  const [pools, trades] = await Promise.all([scanDemoAmmPools(), scanDemoAmmTrades()]);
+  const blockCount = await rpc.call<number>("getblockcount");
+  const transactionInputs = new Map<string, Set<string>>();
+
+  for (let height = 1; height <= blockCount; height += 1) {
+    const block = await getBlockByHeight(height);
+    for (const tx of block.tx) {
+      transactionInputs.set(
+        tx.txid,
+        new Set(
+          tx.vin.flatMap((input) =>
+            input.txid === undefined || input.vout === undefined ? [] : [`${input.txid}:${input.vout}`]
+          )
+        )
+      );
+    }
+  }
+
+  const sortedPools = [...pools].sort((left, right) => left.height - right.height || left.txid.localeCompare(right.txid));
+  const sortedTrades = [...trades].sort((left, right) => left.height - right.height || left.txid.localeCompare(right.txid));
+  const audits: DemoAmmTransitionAuditProof[] = [];
+
+  for (const trade of sortedTrades) {
+    const nextPool = sortedPools.find(
+      (pool) => pool.txid === trade.txid && pool.tokenData.category.toLowerCase() === trade.category
+    );
+    if (nextPool === undefined) continue;
+
+    const previousPool = sortedPools
+      .filter(
+        (pool) =>
+          pool.tokenData.category.toLowerCase() === trade.category &&
+          (pool.height < trade.height || (pool.height === trade.height && pool.txid.localeCompare(trade.txid) < 0))
+      )
+      .at(-1);
+    if (previousPool === undefined) continue;
+
+    const poolSpendConfirmed = transactionInputs.get(trade.txid)?.has(`${previousPool.txid}:${previousPool.vout}`) ?? false;
+    audits.push({
+      ...auditDemoAmmTradeTransition({
+        nextPool,
+        poolSpendConfirmed,
+        previousPool,
+        trade
+      }),
+      height: trade.height
+    });
+  }
+
+  return audits;
+};
+
 export const scanDemoTokenProofs = async (): Promise<readonly DemoTokenProof[]> => {
   const blockCount = await rpc.call<number>("getblockcount");
   const proofs: DemoTokenProof[] = [];
@@ -367,12 +428,13 @@ export const scanDemoEvents = async (): Promise<readonly DemoChainEvent[]> => {
 };
 
 export const getDemoSnapshot = async (): Promise<DemoChainSnapshot> => {
-  const [blockCount, events, pools, tokenProofs, trades, vmProofs, utxos] = await Promise.all([
+  const [blockCount, events, pools, tokenProofs, trades, transitionAudits, vmProofs, utxos] = await Promise.all([
     rpc.call<number>("getblockcount"),
     scanDemoEvents(),
     scanDemoAmmPools(),
     scanDemoTokenProofs(),
     scanDemoAmmTrades(),
+    scanDemoAmmTransitionAudits(),
     scanDemoCashVmProofs(),
     findSpendableUtxos()
   ]);
@@ -383,6 +445,7 @@ export const getDemoSnapshot = async (): Promise<DemoChainSnapshot> => {
     pools,
     replay: replayDemoEvents(events),
     tokenProofs,
+    transitionAudits,
     trades,
     vmProofs,
     wallet: {

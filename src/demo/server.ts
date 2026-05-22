@@ -79,6 +79,8 @@ const renderPage = (): string => `<!doctype html>
       a { color: #0f6846; font-weight: 700; }
       .status { min-height: 22px; color: #31423a; }
       .error { color: #9f1d1d; }
+      .ok { color: #176f4d; font-weight: 700; }
+      .bad { color: #9f1d1d; font-weight: 700; }
     </style>
   </head>
   <body>
@@ -116,6 +118,10 @@ const renderPage = (): string => `<!doctype html>
         <div id="trades"></div>
       </section>
       <section>
+        <h2>AMM Reserve Audit</h2>
+        <div id="audits"></div>
+      </section>
+      <section>
         <h2>On-Chain Events</h2>
         <div id="events"></div>
       </section>
@@ -124,6 +130,7 @@ const renderPage = (): string => `<!doctype html>
       const status = document.getElementById('status');
       const metrics = document.getElementById('metrics');
       const trades = document.getElementById('trades');
+      const audits = document.getElementById('audits');
       const events = document.getElementById('events');
       const setStatus = (text, isError = false) => {
         status.textContent = text;
@@ -155,6 +162,7 @@ const renderPage = (): string => `<!doctype html>
         const data = await response.json();
         const launch = data.launch;
         const activePool = data.pools.filter((pool) => pool.active).at(-1);
+        const auditFailures = data.transitionAudits.filter((audit) => audit.status !== 'verified').length;
         metrics.innerHTML = [
           metric('Height', data.blockCount),
           metric('Wallet', '<code>' + data.wallet.address + '</code>'),
@@ -165,12 +173,18 @@ const renderPage = (): string => `<!doctype html>
           metric('Escrow sats', launch ? launch.bchEscrowSats : '0'),
           metric('Fees sats', launch ? launch.feesCollectedBchSats : '0'),
           metric('Pool BCH sats', activePool ? activePool.valueSats : 'not created'),
-          metric('Pool tokens', activePool ? activePool.tokenData.amount : 'not created')
+          metric('Pool tokens', activePool ? activePool.tokenData.amount : 'not created'),
+          metric('AMM audit', data.transitionAudits.length === 0 ? 'no swaps' : auditFailures === 0 ? 'verified' : auditFailures + ' failed')
         ].join('');
         trades.innerHTML = data.trades.length === 0
           ? '<p>No decoded AMM trades found yet.</p>'
           : '<table><thead><tr><th>Height</th><th>Side</th><th>Category</th><th>Input Amount</th><th>Output Amount</th><th>Tx</th></tr></thead><tbody>' +
             data.trades.map((trade) => '<tr><td>' + trade.height + '</td><td>' + sideName(trade.side) + '</td><td><code>' + trade.category + '</code></td><td>' + amount(trade.inputAmount) + '</td><td>' + amount(trade.outputAmount) + '</td><td>' + txLink(trade.txid) + '</td></tr>').join('') +
+            '</tbody></table>';
+        audits.innerHTML = data.transitionAudits.length === 0
+          ? '<p>No AMM reserve audits found yet.</p>'
+          : '<table><thead><tr><th>Height</th><th>Status</th><th>Side</th><th>Expected BCH</th><th>Actual BCH</th><th>Expected Tokens</th><th>Actual Tokens</th><th>Spent Pool</th><th>Tx</th></tr></thead><tbody>' +
+            data.transitionAudits.map((audit) => '<tr><td>' + audit.height + '</td><td><span class="' + (audit.status === 'verified' ? 'ok' : 'bad') + '">' + audit.status + '</span></td><td>' + sideName(audit.side) + '</td><td>' + amount(audit.expectedBchReserveSats) + '</td><td>' + amount(audit.actualBchReserveSats) + '</td><td>' + amount(audit.expectedTokenReserve) + '</td><td>' + amount(audit.actualTokenReserve) + '</td><td>' + audit.poolSpendConfirmed + '</td><td>' + txLink(audit.txid) + '</td></tr>').join('') +
             '</tbody></table>';
         const tokenProofs = data.tokenProofs.length === 0
           ? '<p>No real CashToken outputs found yet.</p>'
@@ -235,6 +249,25 @@ const serializeSnapshot = async () => {
         },
     pools: snapshot.pools,
     tokenProofs: snapshot.tokenProofs,
+    transitionAudits: snapshot.transitionAudits.map((audit) => ({
+      actualBchReserveSats: audit.actualBchReserveSats,
+      actualTokenReserve: audit.actualTokenReserve,
+      category: audit.category,
+      constantProductAfter: audit.constantProductAfter,
+      constantProductBefore: audit.constantProductBefore,
+      expectedBchReserveSats: audit.expectedBchReserveSats,
+      expectedTokenReserve: audit.expectedTokenReserve,
+      height: audit.height,
+      inputAmount: audit.inputAmount,
+      nextPoolTxid: audit.nextPoolTxid,
+      outputAmount: audit.outputAmount,
+      poolSpendConfirmed: audit.poolSpendConfirmed,
+      previousPoolTxid: audit.previousPoolTxid,
+      problems: audit.problems,
+      side: audit.side,
+      status: audit.status,
+      txid: audit.txid
+    })),
     trades: snapshot.trades.map((trade) => ({
       category: trade.category,
       height: trade.height,

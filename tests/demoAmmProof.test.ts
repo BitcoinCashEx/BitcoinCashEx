@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  auditDemoAmmTradeTransition,
   demoAmmPoolMarkerPrefix,
   encodeDemoAmmPoolMarkerText,
   encodeDemoAmmTradeMarkerText,
@@ -144,5 +145,100 @@ describe("demo AMM pool proof helpers", () => {
 
     expect(parseDemoAmmPoolMarkerText(markerText)).toBe(category);
     expect(parseDemoAmmPoolMarkerScript(opReturnMarkerScript(markerText))).toBe(category);
+  });
+
+  it("audits BCH-to-token reserve transitions from trade markers and pool UTXOs", () => {
+    const previousPool = { ...pool, valueSats: "10000", tokenData: { ...pool.tokenData, amount: "1000" } };
+    const nextPool = {
+      ...pool,
+      height: 11,
+      txid: "cc".repeat(32),
+      valueSats: "11000",
+      tokenData: { ...pool.tokenData, amount: "910" }
+    };
+
+    expect(
+      auditDemoAmmTradeTransition({
+        nextPool,
+        poolSpendConfirmed: true,
+        previousPool,
+        trade: {
+          category: pool.tokenData.category,
+          inputAmount: "1000",
+          outputAmount: "90",
+          side: "BCH_TO_TOKEN",
+          txid: nextPool.txid
+        }
+      })
+    ).toMatchObject({
+      actualBchReserveSats: "11000",
+      actualTokenReserve: "910",
+      expectedBchReserveSats: "11000",
+      expectedTokenReserve: "910",
+      poolSpendConfirmed: true,
+      status: "verified"
+    });
+  });
+
+  it("audits token-to-BCH reserve transitions with the pool-side fee delta", () => {
+    const previousPool = { ...pool, valueSats: "11000", tokenData: { ...pool.tokenData, amount: "910" } };
+    const nextPool = {
+      ...pool,
+      height: 11,
+      txid: "cc".repeat(32),
+      valueSats: "10900",
+      tokenData: { ...pool.tokenData, amount: "920" }
+    };
+
+    expect(
+      auditDemoAmmTradeTransition({
+        nextPool,
+        poolSpendConfirmed: true,
+        previousPool,
+        tokenToBchPoolFeeSats: 2n,
+        trade: {
+          category: pool.tokenData.category,
+          inputAmount: "10",
+          outputAmount: "98",
+          side: "TOKEN_TO_BCH",
+          txid: nextPool.txid
+        }
+      })
+    ).toMatchObject({
+      actualBchReserveSats: "10900",
+      actualTokenReserve: "920",
+      expectedBchReserveSats: "10900",
+      expectedTokenReserve: "920",
+      status: "verified"
+    });
+  });
+
+  it("flags AMM reserve audits when the previous pool spend or reserves do not match", () => {
+    const previousPool = { ...pool, valueSats: "10000", tokenData: { ...pool.tokenData, amount: "1000" } };
+    const nextPool = {
+      ...pool,
+      height: 11,
+      txid: "cc".repeat(32),
+      valueSats: "10999",
+      tokenData: { ...pool.tokenData, amount: "910" }
+    };
+    const audit = auditDemoAmmTradeTransition({
+      nextPool,
+      poolSpendConfirmed: false,
+      previousPool,
+      trade: {
+        category: pool.tokenData.category,
+        inputAmount: "1000",
+        outputAmount: "90",
+        side: "BCH_TO_TOKEN",
+        txid: nextPool.txid
+      }
+    });
+
+    expect(audit.status).toBe("failed");
+    expect(audit.problems).toEqual([
+      "Swap transaction does not spend the previous pool UTXO.",
+      "Next BCH reserve does not match the trade marker delta."
+    ]);
   });
 });

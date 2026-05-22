@@ -69,6 +69,10 @@ The current implementation uses BCHN RPC directly, without Fulcrum:
   AMM trade history to show the current active pool and swap rows.
 - Decoded trade rows use `height`, `txid`, `side`, `category`, `inputAmount`,
   and `outputAmount`, and the demo UI links each `txid` to `/tx/<txid>`.
+- `/api/state.transitionAudits` reconstructs each AMM swap from the previous
+  CashVM pool UTXO, the decoded trade marker, and the recreated pool UTXO. It
+  checks the previous pool outpoint is spent, expected reserves match actual
+  reserves, and the constant-product invariant does not decrease.
 
 The current CashVM script gates custody by backend signature. The next hardening
 milestone is a covenant template that validates token category continuity,
