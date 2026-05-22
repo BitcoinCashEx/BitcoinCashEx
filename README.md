@@ -50,6 +50,8 @@ The node selection and CashVM activation notes are in
 [docs/node-selection.md](docs/node-selection.md).
 The pump.fun-style launchpad direction is described in
 [docs/launchpad.md](docs/launchpad.md).
+The missing on-chain CashToken regression path is tracked in
+[docs/regtest-token-proof.md](docs/regtest-token-proof.md).
 
 ## Implemented Modules
 

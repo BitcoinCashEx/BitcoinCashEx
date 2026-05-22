@@ -93,3 +93,10 @@ Reasons to start here:
   `https://github.com/fex-cash/fex/blob/main/whitepaper/fex_whitepaper.md`
 - Jedex:
   `https://github.com/bitjson/jedex`
+
+## Regtest Proof
+
+The on-chain proof plan is tracked in
+[regtest-token-proof.md](regtest-token-proof.md). The current codebase has a
+deterministic launch regression; it does not yet mine a real CashToken launch on
+BCHN regtest.
