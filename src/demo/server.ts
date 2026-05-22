@@ -72,7 +72,7 @@ const renderPage = (): string => `<!doctype html>
       h1 { margin: 0 0 8px; font-size: clamp(26px, 4vw, 44px); letter-spacing: 0; }
       h2 { margin: 0 0 12px; font-size: 18px; letter-spacing: 0; }
       p { margin: 0; max-width: 920px; line-height: 1.5; }
-      section { background: white; border: 1px solid #d8ddd5; border-radius: 8px; padding: 18px; }
+      section { background: white; border: 1px solid #d8ddd5; border-radius: 8px; padding: 18px; overflow-x: auto; }
       .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
       .metric { border: 1px solid #e0e4dc; border-radius: 6px; padding: 12px; background: #fbfcfa; min-height: 72px; }
       .label { display: block; color: #59655d; font-size: 12px; text-transform: uppercase; letter-spacing: .04em; }
@@ -85,7 +85,7 @@ const renderPage = (): string => `<!doctype html>
       table { width: 100%; border-collapse: collapse; }
       th, td { text-align: left; border-bottom: 1px solid #e3e6e1; padding: 10px 8px; vertical-align: top; }
       th { color: #59655d; font-size: 12px; text-transform: uppercase; letter-spacing: .04em; }
-      code { background: #eef1eb; border-radius: 4px; padding: 2px 4px; }
+      code { background: #eef1eb; border-radius: 4px; padding: 2px 4px; overflow-wrap: anywhere; }
       a { color: #0f6846; font-weight: 700; }
       .status { min-height: 22px; color: #31423a; }
       .error { color: #9f1d1d; }
@@ -210,7 +210,7 @@ const renderPage = (): string => `<!doctype html>
         ].join('');
         launchProofPackView.innerHTML = launchPack.status === 'missing'
           ? '<p>No complete launch-to-AMM proof found yet.</p>' + (launchPack.problems.length === 0 ? '' : '<p class="error">' + launchPack.problems.join(' ') + '</p>')
-          : '<table><thead><tr><th>Status</th><th>Token Category</th><th>Token Binding</th><th>Graduation</th><th>Pool</th><th>AMM Proof</th></tr></thead><tbody><tr><td><span class="' + (launchPack.status === 'verified' ? 'ok' : 'bad') + '">' + launchPack.status + '</span></td><td><code>' + (launchPack.tokenCategory || '') + '</code></td><td>' + maybeTxLink(launchPack.tokenBindingTxid) + '</td><td>' + maybeTxLink(launchPack.graduationTxid) + '</td><td>' + maybeTxLink(launchPack.poolTxid) + '</td><td>' + launchPack.ammProofPack.auditTxids.map(txLink).join(' ') + '</td></tr></tbody></table>' +
+          : '<table><thead><tr><th>Status</th><th>Token Category</th><th>Graduation BCH</th><th>Pool BCH</th><th>Graduation Tokens</th><th>Pool Tokens</th><th>Token Binding</th><th>Graduation</th><th>Pool</th><th>AMM Proof</th></tr></thead><tbody><tr><td><span class="' + (launchPack.status === 'verified' ? 'ok' : 'bad') + '">' + launchPack.status + '</span></td><td><code>' + (launchPack.tokenCategory || '') + '</code></td><td>' + amount(launchPack.graduationBchAmountSats || '') + '</td><td>' + amount(launchPack.migratedPoolBchSats || '') + '</td><td>' + amount(launchPack.graduationTokenAmount || '') + '</td><td>' + amount(launchPack.migratedPoolTokenAmount || '') + '</td><td>' + maybeTxLink(launchPack.tokenBindingTxid) + '</td><td>' + maybeTxLink(launchPack.graduationTxid) + '</td><td>' + maybeTxLink(launchPack.poolTxid) + '</td><td>' + launchPack.ammProofPack.auditTxids.map(txLink).join(' ') + '</td></tr></tbody></table>' +
             (launchPack.problems.length === 0 ? '' : '<p class="error">' + launchPack.problems.join(' ') + '</p>');
         proofPackView.innerHTML = pack.status === 'missing'
           ? '<p>No complete proof pack found yet.</p>'
@@ -310,13 +310,13 @@ const renderTxPage = (txid: string, decoded: Awaited<ReturnType<typeof getDecode
       header a { color: white; }
       h1 { margin: 10px 0 0; font-size: clamp(22px, 3vw, 34px); letter-spacing: 0; overflow-wrap: anywhere; }
       h2 { margin: 0 0 12px; font-size: 18px; letter-spacing: 0; }
-      section { background: white; border: 1px solid #d8ddd5; border-radius: 8px; padding: 18px; }
+      section { background: white; border: 1px solid #d8ddd5; border-radius: 8px; padding: 18px; overflow-x: auto; }
       .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
       .metric { border: 1px solid #e0e4dc; border-radius: 6px; padding: 12px; background: #fbfcfa; min-height: 72px; }
       .label { display: block; color: #59655d; font-size: 12px; text-transform: uppercase; letter-spacing: .04em; }
       .value { display: block; margin-top: 6px; font-size: 16px; font-weight: 700; overflow-wrap: anywhere; }
       code, pre { background: #eef1eb; border-radius: 4px; }
-      code { padding: 2px 4px; }
+      code { padding: 2px 4px; overflow-wrap: anywhere; }
       pre { padding: 14px; overflow: auto; max-height: 720px; }
       .ok { color: #176f4d; font-weight: 700; }
       .bad { color: #9f1d1d; font-weight: 700; }

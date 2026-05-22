@@ -329,14 +329,21 @@ describe("demo AMM pool proof helpers", () => {
         history: [
           { height: 10, kind: "CREATE", statusAfter: "active", txid: "01".repeat(32) },
           {
-            category,
+            graduationBchAmountSats: "5000000000",
+            graduationTokenAmount: "900000",
             height: 11,
+            kind: "GRADUATE",
+            statusAfter: "graduated",
+            txid: "04".repeat(32)
+          },
+          {
+            category,
+            height: 12,
             kind: "TOKEN",
             statusAfter: "active",
             tokenGenesisTxid: "02".repeat(32),
             txid: "03".repeat(32)
-          },
-          { height: 12, kind: "GRADUATE", statusAfter: "graduated", txid: "04".repeat(32) }
+          }
         ],
         pools: [{ ...pool, height: 13, tokenData: { ...pool.tokenData, category }, txid: "05".repeat(32) }],
         tokenProofs: [
@@ -390,14 +397,21 @@ describe("demo AMM pool proof helpers", () => {
         history: [
           { height: 10, kind: "CREATE", statusAfter: "active", txid: "01".repeat(32) },
           {
-            category,
+            graduationBchAmountSats: "5000000000",
+            graduationTokenAmount: "900000",
             height: 11,
+            kind: "GRADUATE",
+            statusAfter: "graduated",
+            txid: "04".repeat(32)
+          },
+          {
+            category,
+            height: 12,
             kind: "TOKEN",
             statusAfter: "active",
             tokenGenesisTxid: "02".repeat(32),
             txid: "03".repeat(32)
-          },
-          { height: 12, kind: "GRADUATE", statusAfter: "graduated", txid: "04".repeat(32) }
+          }
         ],
         pools: [{ ...pool, height: 10, tokenData: { ...pool.tokenData, category }, txid: "05".repeat(32) }],
         tokenProofs: [],

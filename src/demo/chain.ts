@@ -504,6 +504,12 @@ const launchAmmProofHistory = (history: ReturnType<typeof replayDemoEvents>["his
           tokenGenesisTxid: entry.event.input.tokenGenesisTxid
         }
       : {}),
+    ...(entry.graduation === undefined
+      ? {}
+      : {
+          graduationBchAmountSats: entry.graduation.bchAmountSats.toString(),
+          graduationTokenAmount: entry.graduation.tokenAmount.toString()
+        }),
     height: entry.event.height,
     kind: entry.event.input.kind,
     ...(entry.statusAfter === undefined ? {} : { statusAfter: entry.statusAfter }),
@@ -631,6 +637,87 @@ export const createDemoAmmPool = async (category?: string): Promise<DemoAmmPoolU
   return pool;
 };
 
+export const createDemoGraduationAmmPool = async ({
+  bchAmountSats,
+  category,
+  tokenAmount
+}: {
+  readonly bchAmountSats: bigint;
+  readonly category: string;
+  readonly tokenAmount: bigint;
+}): Promise<DemoAmmPoolUtxo> => {
+  const existingPool = await activeAmmPool(category);
+  if (existingPool !== undefined) {
+    return existingPool;
+  }
+
+  const tokenUtxo = (await findDemoTokenUtxos(demoAddress)).find(
+    (utxo) => utxo.tokenData?.category.toLowerCase() === category.toLowerCase()
+  );
+  if (tokenUtxo === undefined || tokenUtxo.tokenData === undefined) {
+    throw new Error("Mint and bind a real CashToken before creating the graduation AMM pool.");
+  }
+  requireDemoAmmPoolTokenData(tokenUtxo.tokenData, category);
+  if (bchAmountSats <= dustLimitSats) {
+    throw new Error("Graduation BCH amount is too small to seed an AMM pool.");
+  }
+  if (tokenAmount <= 0n) {
+    throw new Error("Graduation token amount must be positive.");
+  }
+
+  const tokenReserve = BigInt(tokenUtxo.tokenData.amount);
+  if (tokenReserve < tokenAmount) {
+    throw new Error("Bound CashToken UTXO does not hold enough tokens for graduation migration.");
+  }
+
+  const feeSats = 1_000n;
+  const tokenChange = tokenReserve - tokenAmount;
+  const tokenChangeDustSats = tokenChange === 0n ? 0n : demoAmmTokenOutputDustSats;
+  const bchChangeSats = tokenUtxo.amountSats - bchAmountSats - tokenChangeDustSats - feeSats;
+  if (bchChangeSats <= dustLimitSats) {
+    throw new Error("Bound CashToken UTXO BCH value is too small for graduation migration.");
+  }
+
+  const outputs: unknown[] = [
+    {
+      [demoCashVmAddress]: {
+        amount: satsToBch(bchAmountSats),
+        tokenData: {
+          ...tokenUtxo.tokenData,
+          amount: tokenAmount.toString()
+        }
+      }
+    }
+  ];
+  if (tokenChange > 0n) {
+    outputs.push({
+      [demoAddress]: {
+        amount: satsToBch(tokenChangeDustSats + bchChangeSats),
+        tokenData: {
+          amount: tokenChange.toString(),
+          category: tokenUtxo.tokenData.category
+        }
+      }
+    });
+  } else {
+    outputs.push({ [demoAddress]: satsToBch(bchChangeSats) });
+  }
+  outputs.push({
+    data: eventTextToHex(encodeDemoAmmPoolMarkerText(tokenUtxo.tokenData.category))
+  });
+
+  const raw = await rpc.call<string>("createrawtransaction", [[{ txid: tokenUtxo.txid, vout: tokenUtxo.vout }], outputs]);
+  const txid = await signAndSubmit(raw, tokenUtxo);
+  await mineDemoBlock();
+
+  const [pool] = (await scanDemoAmmPools()).filter((entry) => entry.txid === txid);
+  if (pool === undefined) {
+    throw new Error("Graduation AMM pool was not found after mining.");
+  }
+  summarizeDemoAmmPool(pool);
+  return pool;
+};
+
 export const swapDemoAmmPool = async (
   bchAmountInSats = 1_000_000n,
   feeBps = 30,
@@ -726,7 +813,13 @@ export const swapDemoAmmPool = async (
   };
 };
 
-export const runDemoAmmProofPack = async (category?: string): Promise<DemoAmmProofPackRun> => {
+export const runDemoAmmProofPack = async (
+  category?: string,
+  options: {
+    readonly bchAmountInSats?: bigint;
+    readonly tokenAmountIn?: bigint;
+  } = {}
+): Promise<DemoAmmProofPackRun> => {
   await ensureDemoFunding();
   const startedHeight = await rpc.call<number>("getblockcount");
   let pool = await activeAmmPool(category);
@@ -742,8 +835,8 @@ export const runDemoAmmProofPack = async (category?: string): Promise<DemoAmmPro
     }
   }
 
-  const bchToToken = await swapDemoAmmPool(1_000_000n, 30, pool.tokenData.category);
-  const tokenToBch = await sellDemoAmmTokens(50n, 30, pool.tokenData.category);
+  const bchToToken = await swapDemoAmmPool(options.bchAmountInSats ?? 1_000_000n, 30, pool.tokenData.category);
+  const tokenToBch = await sellDemoAmmTokens(options.tokenAmountIn ?? 50n, 30, pool.tokenData.category);
   const snapshot = await getDemoSnapshot();
   const transitionAudits = snapshot.transitionAudits.filter(
     (audit) => audit.txid === bchToToken.txid || audit.txid === tokenToBch.txid
@@ -911,29 +1004,27 @@ export const runDemoLaunchAmmProofPack = async (): Promise<DemoLaunchAmmProofPac
   await ensureDemoLaunchGraduated();
 
   let snapshot = await getDemoSnapshot();
-  let tokenBinding = [...snapshot.events].reverse().find((event) => event.input.kind === "TOKEN");
-  let tokenCategory: string;
-  let tokenGenesisTxid: string;
-  let tokenBindingTxid: string;
-
-  if (tokenBinding?.input.kind === "TOKEN") {
-    tokenCategory = tokenBinding.input.category;
-    tokenGenesisTxid = tokenBinding.input.tokenGenesisTxid;
-    tokenBindingTxid = tokenBinding.txid;
-  } else {
-    const token = await createDemoCashToken();
-    tokenCategory = token.category;
-    tokenGenesisTxid = token.tokenGenesisTxid;
-    tokenBindingTxid = await submitDemoEvent({ category: tokenCategory, kind: "TOKEN", tokenGenesisTxid });
-    snapshot = await getDemoSnapshot();
-    tokenBinding = [...snapshot.events].reverse().find((event) => event.input.kind === "TOKEN");
-    if (tokenBinding?.input.kind !== "TOKEN" || tokenBinding.input.category !== tokenCategory) {
-      throw new Error("Launch CashToken binding event was not found after mining.");
-    }
+  const graduation = snapshot.replay.graduation;
+  if (graduation === undefined) {
+    throw new Error("Launch graduation was not found after ensuring graduation.");
   }
 
-  await createDemoAmmPool(tokenCategory);
-  const ammProofPack = await runDemoAmmProofPack(tokenCategory);
+  const token = await createDemoCashToken();
+  const tokenCategory = token.category;
+  const tokenGenesisTxid = token.tokenGenesisTxid;
+  const tokenBindingTxid = await submitDemoEvent({ category: tokenCategory, kind: "TOKEN", tokenGenesisTxid });
+  snapshot = await getDemoSnapshot();
+  const tokenBinding = [...snapshot.events].reverse().find((event) => event.input.kind === "TOKEN");
+  if (tokenBinding?.input.kind !== "TOKEN" || tokenBinding.input.category !== tokenCategory) {
+    throw new Error("Launch CashToken binding event was not found after mining.");
+  }
+
+  await createDemoGraduationAmmPool({
+    bchAmountSats: graduation.bchAmountSats,
+    category: tokenCategory,
+    tokenAmount: graduation.tokenAmount
+  });
+  const ammProofPack = await runDemoAmmProofPack(tokenCategory, { bchAmountInSats: 100_000n, tokenAmountIn: 1_000n });
   snapshot = await getDemoSnapshot();
 
   if (

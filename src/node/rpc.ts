@@ -65,7 +65,7 @@ export class BchnRpcClient {
       });
 
       if (!response.ok) {
-        throw new BchnRpcError(`BCHN RPC HTTP ${response.status}: ${response.statusText}`);
+        throw new BchnRpcError(`BCHN RPC HTTP ${response.status}: ${response.statusText}: ${await response.text()}`);
       }
 
       const payload = (await response.json()) as JsonRpcResponse<T>;

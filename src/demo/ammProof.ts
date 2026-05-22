@@ -89,6 +89,8 @@ export interface DemoAmmProofPackReceipt {
 
 export interface DemoLaunchAmmProofPackHistoryInput {
   readonly category?: string;
+  readonly graduationBchAmountSats?: string;
+  readonly graduationTokenAmount?: string;
   readonly height: number;
   readonly kind: string;
   readonly statusAfter?: string;
@@ -100,8 +102,12 @@ export interface DemoLaunchAmmProofPackReceipt {
   readonly ammProofPack: DemoAmmProofPackReceipt;
   readonly createTxid?: string;
   readonly endHeight?: number;
+  readonly graduationBchAmountSats?: string;
   readonly graduationHeight?: number;
+  readonly graduationTokenAmount?: string;
   readonly graduationTxid?: string;
+  readonly migratedPoolBchSats?: string;
+  readonly migratedPoolTokenAmount?: string;
   readonly poolTxid?: string;
   readonly problems: readonly string[];
   readonly startHeight?: number;
@@ -439,8 +445,17 @@ export const buildDemoLaunchAmmProofPackReceipt = ({
   if (graduation === undefined) {
     problems.push("No graduated launch event was found.");
   }
+  if (graduation !== undefined && graduation.graduationBchAmountSats === undefined) {
+    problems.push("Graduation BCH migration amount was not available.");
+  }
+  if (graduation !== undefined && graduation.graduationTokenAmount === undefined) {
+    problems.push("Graduation token migration amount was not available.");
+  }
   if (tokenBinding === undefined || tokenCategory === undefined || tokenBinding.tokenGenesisTxid === undefined) {
     problems.push("No launch CashToken binding event was found.");
+  }
+  if (tokenBinding !== undefined && graduation !== undefined && tokenBinding.height <= graduation.height) {
+    problems.push("Launch CashToken binding was not mined after graduation.");
   }
 
   const matchingTokenProof =
@@ -468,6 +483,20 @@ export const buildDemoLaunchAmmProofPackReceipt = ({
   if (firstPool !== undefined && tokenBinding !== undefined && firstPool.height <= tokenBinding.height) {
     problems.push("Launch AMM pool was not created after the CashToken binding event.");
   }
+  if (
+    firstPool !== undefined &&
+    graduation?.graduationBchAmountSats !== undefined &&
+    firstPool.valueSats !== graduation.graduationBchAmountSats
+  ) {
+    problems.push("Launch AMM pool BCH reserve does not match the graduation migration amount.");
+  }
+  if (
+    firstPool?.tokenData.amount !== undefined &&
+    graduation?.graduationTokenAmount !== undefined &&
+    firstPool.tokenData.amount !== graduation.graduationTokenAmount
+  ) {
+    problems.push("Launch AMM pool token reserve does not match the graduation migration amount.");
+  }
 
   const auditsForLaunch =
     tokenCategory === undefined
@@ -491,8 +520,18 @@ export const buildDemoLaunchAmmProofPackReceipt = ({
     ammProofPack,
     ...(create === undefined ? {} : { createTxid: create.txid }),
     ...(ammProofPack.endHeight === undefined ? {} : { endHeight: ammProofPack.endHeight }),
+    ...(graduation?.graduationBchAmountSats === undefined
+      ? {}
+      : { graduationBchAmountSats: graduation.graduationBchAmountSats }),
     ...(graduation === undefined ? {} : { graduationHeight: graduation.height, graduationTxid: graduation.txid }),
-    ...(firstPool === undefined ? {} : { poolTxid: firstPool.txid }),
+    ...(graduation?.graduationTokenAmount === undefined ? {} : { graduationTokenAmount: graduation.graduationTokenAmount }),
+    ...(firstPool === undefined
+      ? {}
+      : {
+          migratedPoolBchSats: firstPool.valueSats,
+          migratedPoolTokenAmount: firstPool.tokenData.amount,
+          poolTxid: firstPool.txid
+        }),
     problems,
     ...(ammProofPack.startHeight === undefined ? {} : { startHeight: ammProofPack.startHeight }),
     status: problems.length === 0 ? "verified" : missing ? "missing" : "failed",

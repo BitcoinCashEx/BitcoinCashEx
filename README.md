@@ -21,8 +21,8 @@ math, and production-grade safety checks.
   pool UTXO, swaps BCH into tokens, and swaps tokens back into BCH by spending
   and recreating the pool.
 - One-click launch-to-AMM proof that binds a pump-style launch to a real
-  CashToken category on chain, creates the CashVM pool, and verifies both AMM
-  swap directions.
+  CashToken category on chain, creates the CashVM pool with the launch
+  graduation BCH/token amounts, and verifies both AMM swap directions.
 - BCHN raw transaction safety helper that checks `testmempoolaccept` before
   broadcasting.
 
