@@ -24,6 +24,26 @@
 - Proportional remove-liquidity quote.
 - Slippage minimum-output calculations.
 - Bonding-curve remaining-supply and slippage calculations.
+- Deterministic CashToken launch lifecycle modeling for create, buy, sell,
+  graduation eligibility, and graduation migration amounts.
+
+## What The Launchpad Regression Proves
+
+[tests/launchpad.test.ts](../tests/launchpad.test.ts) proves the current
+pump.fun-style flow at the deterministic state-machine level:
+
+- A CashToken launch can be created from validated token metadata.
+- Multiple buys execute against the virtual-reserve bonding curve.
+- A sell can move tokens back into the curve and BCH out of escrow.
+- The launch reaches a graduation threshold.
+- Graduation produces the BCH amount and remaining token amount to migrate into
+  an AMM.
+- Token supply and BCH escrow accounting remain consistent across the lifecycle.
+- Invalid transitions are rejected.
+
+This is not yet a live on-chain CashVM covenant test. The missing proof is a
+regtest integration that creates a real CashToken category, builds CashVM
+transactions, spends launch covenant UTXOs, and mines the lifecycle on BCHN.
 
 ## Transaction Safety
 
@@ -46,8 +66,8 @@ npm run node:health
 
 Current local result:
 
-- 8 test files.
-- 24 unit tests.
+- 9 test files.
+- 26 unit tests.
 - TypeScript strict mode passes.
 - Build passes.
 - npm audit reports 0 vulnerabilities.

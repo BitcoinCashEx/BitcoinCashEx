@@ -27,8 +27,9 @@
 ## Phase 2.5: Launchpad And Bonding Curve
 
 - [x] Add virtual-reserve bonding curve quote math.
-- [ ] Add launch configuration validation.
-- [ ] Add graduation threshold calculation.
+- [x] Add launch configuration validation.
+- [x] Add graduation threshold calculation.
+- [x] Add deterministic create, buy, sell, and graduation state-machine tests.
 - [ ] Add buy, sell, and graduate transaction data models.
 - [ ] Add CashVM contract templates for curve state and migration.
 - [ ] Add regtest CashToken lifecycle tests.

@@ -15,6 +15,8 @@ math, and production-grade safety checks.
 - Liquidity mint, add, and remove quote math.
 - Slippage guards.
 - Virtual-reserve bonding curve math for launchpad pricing.
+- Deterministic token launch lifecycle regression for create, buy, sell, and
+  graduation.
 - BCHN raw transaction safety helper that checks `testmempoolaccept` before
   broadcasting.
 
@@ -62,3 +64,5 @@ The pump.fun-style launchpad direction is described in
   slippage guards.
 - [src/defi/bondingCurve.ts](src/defi/bondingCurve.ts): pump.fun-style
   virtual-reserve buy/sell quote math.
+- [src/defi/launchpad.ts](src/defi/launchpad.ts): deterministic launch
+  lifecycle state machine.

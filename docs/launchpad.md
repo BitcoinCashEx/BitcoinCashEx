@@ -70,8 +70,10 @@ Reasons to start here:
 
 - Add virtual-reserve bonding curve quote math. Done in
   `src/defi/bondingCurve.ts`.
-- Add launch configuration validation.
-- Add graduation threshold calculations.
+- Add launch configuration validation. Done in `src/defi/launchpad.ts`.
+- Add graduation threshold calculations. Done in `src/defi/launchpad.ts`.
+- Add deterministic launch lifecycle regression. Done in
+  `tests/launchpad.test.ts`.
 - Add transaction-builder data models for create, buy, sell, and graduate.
 - Add CashScript or libauth contract templates after the math has full property
   coverage.
