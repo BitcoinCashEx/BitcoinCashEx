@@ -59,13 +59,15 @@ transactions, spends launch covenant UTXOs, and mines the lifecycle on BCHN.
   BCHN.
 - Each launch action is encoded as a compact OP_RETURN event transaction.
 - Each submitted action is mined into a block.
+- The UI can also create a real CashToken output via BCHN raw transactions:
+  pre-genesis vout `0`, token genesis, `tokenData.amount`, and minting NFT.
 - `/api/state` scans BCHN blocks and reconstructs launch state from chain
-  events.
+  events and token outputs.
 - `/tx/<txid>` acts as a local transaction explorer for the mined event.
 
-This proves backend-controlled local-chain execution and chain-derived UI state.
-It still does not prove a production CashVM covenant holding real CashToken
-reserves.
+This proves backend-controlled local-chain execution, real CashToken genesis,
+and chain-derived UI state. It still does not prove a production CashVM covenant
+holding reserves.
 
 ## Current Validation
 
@@ -81,8 +83,8 @@ npm run node:health
 
 Current local result:
 
-- 10 test files.
-- 29 unit tests.
+- 11 test files.
+- 31 unit tests.
 - TypeScript strict mode passes.
 - Build passes.
 - npm audit reports 0 vulnerabilities.

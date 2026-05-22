@@ -107,5 +107,7 @@ There is now also a local event-backed proof UI:
 - Open `http://127.0.0.1:3000`.
 - Click create, buy, sell, and graduate.
 - The backend submits and mines BCHN regtest transactions for each action.
+- Click mint real CashToken to create a pre-genesis transaction, spend vout `0`,
+  and mine a BCHN transaction with native `tokenData`.
 - The page reconstructs state from mined OP_RETURN event transactions and links
   to local `/tx/<txid>` transaction views.

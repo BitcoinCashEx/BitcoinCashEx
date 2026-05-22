@@ -1,5 +1,6 @@
 import http from "node:http";
 import {
+  createDemoCashToken,
   demoAddress,
   ensureDemoFunding,
   getDecodedTransaction,
@@ -86,6 +87,7 @@ const renderPage = (): string => `<!doctype html>
         <h2>Actions</h2>
         <div class="controls">
           <button id="fund">Fund Wallet</button>
+          <button id="token" class="secondary">Mint Real CashToken</button>
           <button id="create">Create Token Launch</button>
           <input id="buyAmount" value="100000" aria-label="Buy amount sats" />
           <button id="buy">Buy</button>
@@ -135,13 +137,20 @@ const renderPage = (): string => `<!doctype html>
           metric('Escrow sats', launch ? launch.bchEscrowSats : '0'),
           metric('Fees sats', launch ? launch.feesCollectedBchSats : '0')
         ].join('');
-        events.innerHTML = data.history.length === 0
+        const tokenProofs = data.tokenProofs.length === 0
+          ? '<p>No real CashToken outputs found yet.</p>'
+          : '<table><thead><tr><th>Height</th><th>Category</th><th>Amount</th><th>Tx</th></tr></thead><tbody>' +
+            data.tokenProofs.map((proof) => '<tr><td>' + proof.height + '</td><td><code>' + proof.tokenData.category + '</code></td><td>' + (proof.tokenData.amount || 'NFT') + '</td><td><a href="/tx/' + proof.txid + '" target="_blank">' + proof.txid.slice(0, 12) + '...</a></td></tr>').join('') +
+            '</tbody></table>';
+        const launchEvents = data.history.length === 0
           ? '<p>No launch events mined yet.</p>'
           : '<table><thead><tr><th>Height</th><th>Action</th><th>Tx</th><th>Status After</th></tr></thead><tbody>' +
             data.history.map((entry) => '<tr><td>' + entry.height + '</td><td>' + entry.kind + '</td><td><a href="/tx/' + entry.txid + '" target="_blank">' + entry.txid.slice(0, 12) + '...</a></td><td>' + (entry.statusAfter || '') + '</td></tr>').join('') +
             '</tbody></table>';
+        events.innerHTML = '<h3>Real CashToken Outputs</h3>' + tokenProofs + '<h3>Launch Events</h3>' + launchEvents;
       };
       document.getElementById('fund').onclick = () => post('/api/fund').catch((error) => setStatus(error.message, true));
+      document.getElementById('token').onclick = () => post('/api/token').catch((error) => setStatus(error.message, true));
       document.getElementById('create').onclick = () => post('/api/create').catch((error) => setStatus(error.message, true));
       document.getElementById('buy').onclick = () => post('/api/buy', { bchAmountInSats: document.getElementById('buyAmount').value }).catch((error) => setStatus(error.message, true));
       document.getElementById('sell').onclick = () => post('/api/sell', { tokenAmountIn: document.getElementById('sellAmount').value }).catch((error) => setStatus(error.message, true));
@@ -175,6 +184,7 @@ const serializeSnapshot = async () => {
           remainingTokenSupply: snapshot.replay.launch.curve.maxSupply - snapshot.replay.launch.curve.currentSupply,
           status: snapshot.replay.launch.status
         },
+    tokenProofs: snapshot.tokenProofs,
     wallet: snapshot.wallet
   };
 };
@@ -197,6 +207,12 @@ const server = http.createServer(async (request, response) => {
     if (request.method === "POST" && url.pathname === "/api/fund") {
       await ensureDemoFunding();
       json(response, 200, { ok: true });
+      return;
+    }
+
+    if (request.method === "POST" && url.pathname === "/api/token") {
+      const result = await createDemoCashToken();
+      json(response, 200, { txid: result.tokenGenesisTxid, ...result });
       return;
     }
 

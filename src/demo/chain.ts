@@ -2,6 +2,7 @@ import { hexToBin, privateKeyToP2pkhCashAddress, privateKeyToP2pkhLockingBytecod
 import { loadConfig } from "../config.js";
 import { BchnRpcClient } from "../node/rpc.js";
 import { eventHexToText, eventTextToHex, parseOpReturnEvent, replayDemoEvents, type DemoChainEvent, type DemoEventInput } from "./events.js";
+import { summarizeDemoTokenData, type DemoTokenData } from "./tokenProof.js";
 
 export const demoPrivateKeyHex = "0000000000000000000000000000000000000000000000000000000000000001";
 export const demoPrivateKeyWif = "cMahea7zqjxrtgAbB7LSGbcQUr1uX1ojuat9jZodMN87JcbXMTcA";
@@ -30,6 +31,7 @@ interface BlockTx {
       readonly hex: string;
       readonly type?: string;
     };
+    readonly tokenData?: TokenData;
     readonly value: number;
   }[];
 }
@@ -44,12 +46,16 @@ interface TxOutInfo {
   readonly scriptPubKey: {
     readonly hex: string;
   };
+  readonly tokenData?: TokenData;
   readonly value: number;
 }
+
+export type TokenData = DemoTokenData;
 
 interface SpendableUtxo {
   readonly amountSats: bigint;
   readonly scriptPubKey: string;
+  readonly tokenData?: TokenData;
   readonly txid: string;
   readonly vout: number;
 }
@@ -69,11 +75,20 @@ export interface DemoChainSnapshot {
   readonly blockCount: number;
   readonly events: readonly DemoChainEvent[];
   readonly replay: ReturnType<typeof replayDemoEvents>;
+  readonly tokenProofs: readonly DemoTokenProof[];
   readonly wallet: {
     readonly address: string;
     readonly balanceSats: string;
     readonly spendableUtxos: number;
   };
+}
+
+export interface DemoTokenProof {
+  readonly height: number;
+  readonly tokenData: TokenData;
+  readonly txid: string;
+  readonly valueSats: string;
+  readonly vout: number;
 }
 
 const config = loadConfig();
@@ -107,6 +122,7 @@ const findSpendableUtxos = async (): Promise<readonly SpendableUtxo[]> => {
 
         const txout = await rpc.call<TxOutInfo | null>("gettxout", [tx.txid, output.n, true]);
         if (txout === null) continue;
+        if (txout.tokenData !== undefined) continue;
 
         utxos.push({
           amountSats: bchToSats(txout.value),
@@ -119,6 +135,30 @@ const findSpendableUtxos = async (): Promise<readonly SpendableUtxo[]> => {
   }
 
   return utxos.sort((left, right) => (left.amountSats < right.amountSats ? -1 : 1));
+};
+
+export const scanDemoTokenProofs = async (): Promise<readonly DemoTokenProof[]> => {
+  const blockCount = await rpc.call<number>("getblockcount");
+  const proofs: DemoTokenProof[] = [];
+
+  for (let height = 1; height <= blockCount; height += 1) {
+    const block = await getBlockByHeight(height);
+    for (const tx of block.tx) {
+      for (const output of tx.vout) {
+        if (output.tokenData === undefined) continue;
+        summarizeDemoTokenData(output.tokenData);
+        proofs.push({
+          height,
+          tokenData: output.tokenData,
+          txid: tx.txid,
+          valueSats: bchToSats(output.value).toString(),
+          vout: output.n
+        });
+      }
+    }
+  }
+
+  return proofs;
 };
 
 export const ensureDemoFunding = async (): Promise<void> => {
@@ -153,9 +193,10 @@ export const scanDemoEvents = async (): Promise<readonly DemoChainEvent[]> => {
 };
 
 export const getDemoSnapshot = async (): Promise<DemoChainSnapshot> => {
-  const [blockCount, events, utxos] = await Promise.all([
+  const [blockCount, events, tokenProofs, utxos] = await Promise.all([
     rpc.call<number>("getblockcount"),
     scanDemoEvents(),
+    scanDemoTokenProofs(),
     findSpendableUtxos()
   ]);
 
@@ -163,12 +204,41 @@ export const getDemoSnapshot = async (): Promise<DemoChainSnapshot> => {
     blockCount,
     events,
     replay: replayDemoEvents(events),
+    tokenProofs,
     wallet: {
       address: demoAddress,
       balanceSats: utxos.reduce((sum, utxo) => sum + utxo.amountSats, 0n).toString(),
       spendableUtxos: utxos.length
     }
   };
+};
+
+const signAndSubmit = async (raw: string, utxo: SpendableUtxo): Promise<string> => {
+  const signed = await rpc.call<SignedRawTransaction>("signrawtransactionwithkey", [
+    raw,
+    [demoPrivateKeyWif],
+    [
+      {
+        amount: satsToBch(utxo.amountSats),
+        scriptPubKey: utxo.scriptPubKey,
+        ...(utxo.tokenData === undefined ? {} : { tokenData: utxo.tokenData }),
+        txid: utxo.txid,
+        vout: utxo.vout
+      }
+    ],
+    "ALL|FORKID"
+  ]);
+
+  if (!signed.complete) {
+    throw new Error(`Demo transaction signing failed: ${JSON.stringify(signed.errors ?? [])}`);
+  }
+
+  const [acceptance] = await rpc.call<readonly TestMempoolAcceptResult[]>("testmempoolaccept", [[signed.hex]]);
+  if (acceptance === undefined || !acceptance.allowed) {
+    throw new Error(`Demo transaction rejected: ${acceptance?.["reject-reason"] ?? "unknown reason"}`);
+  }
+
+  return rpc.call<string>("sendrawtransaction", [signed.hex]);
 };
 
 export const submitDemoEvent = async (event: DemoEventInput): Promise<string> => {
@@ -208,32 +278,73 @@ export const submitDemoEvent = async (event: DemoEventInput): Promise<string> =>
     [{ txid: utxo.txid, vout: utxo.vout }],
     [{ data: eventHex }, { [demoAddress]: satsToBch(changeSats) }]
   ]);
-  const signed = await rpc.call<SignedRawTransaction>("signrawtransactionwithkey", [
-    raw,
-    [demoPrivateKeyWif],
-    [
-      {
-        amount: satsToBch(utxo.amountSats),
-        scriptPubKey: utxo.scriptPubKey,
-        txid: utxo.txid,
-        vout: utxo.vout
-      }
-    ],
-    "ALL|FORKID"
-  ]);
-
-  if (!signed.complete) {
-    throw new Error(`Demo transaction signing failed: ${JSON.stringify(signed.errors ?? [])}`);
-  }
-
-  const [acceptance] = await rpc.call<readonly TestMempoolAcceptResult[]>("testmempoolaccept", [[signed.hex]]);
-  if (acceptance === undefined || !acceptance.allowed) {
-    throw new Error(`Demo transaction rejected: ${acceptance?.["reject-reason"] ?? "unknown reason"}`);
-  }
-
-  const txid = await rpc.call<string>("sendrawtransaction", [signed.hex]);
+  const txid = await signAndSubmit(raw, utxo);
   await mineDemoBlock();
   return txid;
+};
+
+export const createDemoCashToken = async (): Promise<{
+  readonly category: string;
+  readonly preGenesisTxid: string;
+  readonly tokenGenesisTxid: string;
+}> => {
+  await ensureDemoFunding();
+  const [fundingUtxo] = await findSpendableUtxos();
+  if (fundingUtxo === undefined) {
+    throw new Error("No spendable demo UTXO is available for token genesis.");
+  }
+
+  const preGenesisValueSats = fundingUtxo.amountSats - 1_000n;
+  if (preGenesisValueSats <= 2_000n) {
+    throw new Error("Demo UTXO is too small for CashToken genesis.");
+  }
+
+  const preGenesisRaw = await rpc.call<string>("createrawtransaction", [
+    [{ txid: fundingUtxo.txid, vout: fundingUtxo.vout }],
+    [{ [demoAddress]: satsToBch(preGenesisValueSats) }]
+  ]);
+  const preGenesisTxid = await signAndSubmit(preGenesisRaw, fundingUtxo);
+  await mineDemoBlock();
+
+  const preGenesisUtxo = await rpc.call<TxOutInfo | null>("gettxout", [preGenesisTxid, 0, true]);
+  if (preGenesisUtxo === null) {
+    throw new Error("Pre-genesis UTXO was not found after mining.");
+  }
+
+  const tokenUtxo: SpendableUtxo = {
+    amountSats: bchToSats(preGenesisUtxo.value),
+    scriptPubKey: preGenesisUtxo.scriptPubKey.hex,
+    txid: preGenesisTxid,
+    vout: 0
+  };
+  const tokenValueSats = tokenUtxo.amountSats - 1_000n;
+
+  const tokenGenesisRaw = await rpc.call<string>("createrawtransaction", [
+    [{ txid: tokenUtxo.txid, vout: tokenUtxo.vout }],
+    [
+      {
+        [demoAddress]: {
+          amount: satsToBch(tokenValueSats),
+          tokenData: {
+            amount: "900000",
+            category: preGenesisTxid,
+            nft: {
+              capability: "minting",
+              commitment: "00"
+            }
+          }
+        }
+      }
+    ]
+  ]);
+  const tokenGenesisTxid = await signAndSubmit(tokenGenesisRaw, tokenUtxo);
+  await mineDemoBlock();
+
+  return {
+    category: preGenesisTxid,
+    preGenesisTxid,
+    tokenGenesisTxid
+  };
 };
 
 export const getDecodedTransaction = async (txid: string) => {

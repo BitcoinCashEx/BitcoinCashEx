@@ -5,9 +5,11 @@ mined on-chain CashToken lifecycle. The next proof must create and spend real
 CashToken UTXOs on regtest.
 
 The repository now includes an intermediate local proof UI that submits and
-mines backend-controlled BCHN regtest event transactions. That UI proves
-chain-derived state and backend transaction submission, but not CashToken
-covenant custody.
+mines backend-controlled BCHN regtest event transactions. It also creates a real
+CashToken output by mining a pre-genesis transaction and spending vout `0` in a
+token genesis transaction. This proves backend transaction submission,
+chain-derived state, and native BCHN `tokenData`, but not CashToken covenant
+custody.
 
 ## Practical Stack
 
