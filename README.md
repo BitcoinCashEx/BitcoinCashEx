@@ -1,1 +1,59 @@
 # BitcoinCashEx
+
+BitcoinCashEx is being built as a Bitcoin Cash DeFi engineering workspace for
+CashVM-native contracts, BCHN-backed local development, deterministic protocol
+math, and production-grade safety checks.
+
+## Current Foundation
+
+- Bitcoin Cash full node target: Bitcoin Cash Node (BCHN) `v29.0.0`.
+- Local chain target: BCHN regtest with the May 2026 CashVM upgrade forced active.
+- Public test chain target: BCHN chipnet for upgrade-compatible integration tests.
+- Core runtime: TypeScript on Node.js, using auditable Bitcoin Cash primitives.
+- Initial DeFi module: integer-only constant-product swap math with invariant tests.
+- CashToken asset metadata validation.
+- Liquidity mint, add, and remove quote math.
+- Slippage guards.
+- BCHN raw transaction safety helper that checks `testmempoolaccept` before
+  broadcasting.
+
+## Quick Start
+
+```sh
+npm install
+npm test
+npm run typecheck
+npm run build
+```
+
+Start the local BCHN regtest node:
+
+```sh
+cp .env.example .env
+npm run node:up
+npm run node:health
+```
+
+Stop it when finished:
+
+```sh
+npm run node:down
+```
+
+## Roadmap
+
+The implementation roadmap is maintained in [docs/roadmap.md](docs/roadmap.md).
+The node selection and CashVM activation notes are in
+[docs/node-selection.md](docs/node-selection.md).
+
+## Implemented Modules
+
+- [src/node/rpc.ts](src/node/rpc.ts): typed BCHN JSON-RPC client with mainnet
+  broadcast guardrails.
+- [src/node/health.ts](src/node/health.ts): BCHN readiness and CashVM activation
+  checks.
+- [src/node/transactions.ts](src/node/transactions.ts): mempool-first raw
+  transaction broadcast flow.
+- [src/cashvm](src/cashvm): CashVM upgrade metadata and bytecode helpers.
+- [src/defi](src/defi): BCH/CashToken assets, swap math, liquidity math, and
+  slippage guards.

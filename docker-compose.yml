@@ -1,0 +1,59 @@
+services:
+  bchn-regtest:
+    image: zquestz/bitcoin-cash-node:29.0.0
+    platform: linux/amd64
+    command:
+      - bitcoind
+      - -regtest
+      - -server=1
+      - -disablewallet=1
+      - -txindex=1
+      - -coinstatsindex=1
+      - -upgrade12activationtime=0
+      - -listen=0
+      - -dnsseed=0
+      - -discover=0
+      - -rpcbind=0.0.0.0:18443
+      - -rpcallowip=172.16.0.0/12
+      - -rpcuser=${BCH_RPC_USER:-bchex}
+      - -rpcpassword=${BCH_RPC_PASSWORD:-bchex-dev-only-change-me}
+      - -zmqpubrawblock=tcp://0.0.0.0:28332
+      - -zmqpubrawtx=tcp://0.0.0.0:28333
+      - -debuglogfile=0
+      - -printtoconsole=1
+    ports:
+      - "127.0.0.1:18443:18443"
+      - "127.0.0.1:28332:28332"
+      - "127.0.0.1:28333:28333"
+    volumes:
+      - bchn_regtest:/data
+
+  bchn-chipnet:
+    image: zquestz/bitcoin-cash-node:29.0.0
+    platform: linux/amd64
+    profiles: ["chipnet"]
+    command:
+      - bitcoind
+      - -chipnet
+      - -server=1
+      - -disablewallet=1
+      - -txindex=1
+      - -coinstatsindex=1
+      - -rpcbind=0.0.0.0:48332
+      - -rpcallowip=172.16.0.0/12
+      - -rpcuser=${BCH_RPC_USER:-bchex}
+      - -rpcpassword=${BCH_RPC_PASSWORD:-bchex-dev-only-change-me}
+      - -zmqpubrawblock=tcp://0.0.0.0:48334
+      - -zmqpubrawtx=tcp://0.0.0.0:48335
+      - -debuglogfile=0
+      - -printtoconsole=1
+    ports:
+      - "127.0.0.1:48332:48332"
+      - "127.0.0.1:48334:48334"
+      - "127.0.0.1:48335:48335"
+    volumes:
+      - bchn_chipnet:/data
+
+volumes:
+  bchn_regtest:
+  bchn_chipnet:
