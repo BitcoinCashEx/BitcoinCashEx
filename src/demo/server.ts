@@ -8,6 +8,7 @@ import {
   getDecodedTransaction,
   getDemoSnapshot,
   runDemoAmmProofPack,
+  runDemoLaunchAmmProofPack,
   sellDemoAmmTokens,
   swapDemoAmmPool,
   submitDemoEvent
@@ -105,6 +106,7 @@ const renderPage = (): string => `<!doctype html>
           <button id="token" class="secondary">Mint Real CashToken</button>
           <button id="cashvm" class="secondary">Run CashVM Proof</button>
           <button id="pool" class="secondary">Create AMM Pool</button>
+          <button id="launchProofPack">Run Launch To AMM Proof</button>
           <button id="proofPack">Run Full AMM Proof</button>
           <input id="swapAmount" value="1000000" aria-label="Swap BCH amount sats" />
           <button id="swap" class="secondary">Swap BCH To Token</button>
@@ -122,6 +124,10 @@ const renderPage = (): string => `<!doctype html>
       <section>
         <h2>Chain State</h2>
         <div class="grid" id="metrics"></div>
+      </section>
+      <section>
+        <h2>Launch To AMM Proof</h2>
+        <div id="launchProofPackView"></div>
       </section>
       <section>
         <h2>Latest Proof Pack</h2>
@@ -143,6 +149,7 @@ const renderPage = (): string => `<!doctype html>
     <script>
       const status = document.getElementById('status');
       const metrics = document.getElementById('metrics');
+      const launchProofPackView = document.getElementById('launchProofPackView');
       const proofPackView = document.getElementById('proofPackView');
       const trades = document.getElementById('trades');
       const audits = document.getElementById('audits');
@@ -161,6 +168,7 @@ const renderPage = (): string => `<!doctype html>
       };
       const metric = (label, value) => '<div class="metric"><span class="label">' + label + '</span><span class="value">' + value + '</span></div>';
       const txLink = (txid) => '<a href="/tx/' + txid + '" target="_blank">' + txid.slice(0, 12) + '...</a>';
+      const maybeTxLink = (txid) => txid ? txLink(txid) : '';
       const amount = (value) => {
         const text = String(value);
         return /^[0-9]+$/.test(text) ? text.replace(/\\B(?=(\\d{3})+(?!\\d))/g, ',') : text;
@@ -183,6 +191,7 @@ const renderPage = (): string => `<!doctype html>
         const activePool = data.pools.filter((pool) => pool.active).at(-1);
         const auditFailures = data.transitionAudits.filter((audit) => audit.status !== 'verified').length;
         const cashVmSpendFailures = data.transitionAudits.filter((audit) => !audit.cashVmSpend || audit.cashVmSpend.status !== 'verified').length;
+        const launchPack = data.launchAmmProofPack;
         const pack = data.proofPack;
         metrics.innerHTML = [
           metric('Height', data.blockCount),
@@ -195,9 +204,14 @@ const renderPage = (): string => `<!doctype html>
           metric('Fees sats', launch ? launch.feesCollectedBchSats : '0'),
           metric('Pool BCH sats', activePool ? activePool.valueSats : 'not created'),
           metric('Pool tokens', activePool ? activePool.tokenData.amount : 'not created'),
+          metric('Launch to AMM', launchPack.status),
           metric('AMM audit', data.transitionAudits.length === 0 ? 'no swaps' : auditFailures === 0 ? 'verified' : auditFailures + ' failed'),
           metric('CashVM AMM spend', data.transitionAudits.length === 0 ? 'no swaps' : cashVmSpendFailures === 0 ? 'verified' : cashVmSpendFailures + ' failed')
         ].join('');
+        launchProofPackView.innerHTML = launchPack.status === 'missing'
+          ? '<p>No complete launch-to-AMM proof found yet.</p>' + (launchPack.problems.length === 0 ? '' : '<p class="error">' + launchPack.problems.join(' ') + '</p>')
+          : '<table><thead><tr><th>Status</th><th>Token Category</th><th>Token Binding</th><th>Graduation</th><th>Pool</th><th>AMM Proof</th></tr></thead><tbody><tr><td><span class="' + (launchPack.status === 'verified' ? 'ok' : 'bad') + '">' + launchPack.status + '</span></td><td><code>' + (launchPack.tokenCategory || '') + '</code></td><td>' + maybeTxLink(launchPack.tokenBindingTxid) + '</td><td>' + maybeTxLink(launchPack.graduationTxid) + '</td><td>' + maybeTxLink(launchPack.poolTxid) + '</td><td>' + launchPack.ammProofPack.auditTxids.map(txLink).join(' ') + '</td></tr></tbody></table>' +
+            (launchPack.problems.length === 0 ? '' : '<p class="error">' + launchPack.problems.join(' ') + '</p>');
         proofPackView.innerHTML = pack.status === 'missing'
           ? '<p>No complete proof pack found yet.</p>'
           : '<table><thead><tr><th>Status</th><th>Heights</th><th>BCH To Token</th><th>Token To BCH</th><th>Audits</th></tr></thead><tbody><tr><td><span class="' + (pack.status === 'verified' ? 'ok' : 'bad') + '">' + pack.status + '</span></td><td>' + pack.startHeight + '-' + pack.endHeight + '</td><td>' + txLink(pack.bchToTokenTxid) + '</td><td>' + txLink(pack.tokenToBchTxid) + '</td><td>' + pack.auditTxids.map(txLink).join(' ') + '</td></tr></tbody></table>' +
@@ -238,6 +252,7 @@ const renderPage = (): string => `<!doctype html>
       document.getElementById('token').onclick = () => post('/api/token').catch((error) => setStatus(error.message, true));
       document.getElementById('cashvm').onclick = () => post('/api/cashvm').catch((error) => setStatus(error.message, true));
       document.getElementById('pool').onclick = () => post('/api/pool').catch((error) => setStatus(error.message, true));
+      document.getElementById('launchProofPack').onclick = () => post('/api/launch-proof-pack').catch((error) => setStatus(error.message, true));
       document.getElementById('proofPack').onclick = () => post('/api/proof-pack').catch((error) => setStatus(error.message, true));
       document.getElementById('swap').onclick = () => post('/api/swap', { bchAmountInSats: document.getElementById('swapAmount').value }).catch((error) => setStatus(error.message, true));
       document.getElementById('ammSell').onclick = () => post('/api/swap-token-to-bch', { tokenAmountIn: document.getElementById('ammSellAmount').value }).catch((error) => setStatus(error.message, true));
@@ -252,12 +267,33 @@ const renderPage = (): string => `<!doctype html>
 </html>`;
 
 const renderTxPage = (txid: string, decoded: Awaited<ReturnType<typeof getDecodedTransaction>>): string => {
+  const event = decoded.event;
   const trade = decoded.ammTrade;
   const audit = decoded.ammTransitionAudit;
   const cashVmSpend = audit?.cashVmSpend;
   const jsonText = JSON.stringify(decoded, null, 2);
   const statusClass = audit?.status === "verified" ? "ok" : "bad";
   const cashVmClass = cashVmSpend?.status === "verified" ? "ok" : "bad";
+  const eventMetrics =
+    event === undefined
+      ? ""
+      : [
+          `<div class="metric"><span class="label">Event kind</span><span class="value">${escapeHtml(event.kind)}</span></div>`,
+          event.kind === "CREATE"
+            ? `<div class="metric"><span class="label">Symbol</span><span class="value">${escapeHtml(event.symbol)}</span></div>
+               <div class="metric"><span class="label">Max supply</span><span class="value">${escapeHtml(event.maxSupply)}</span></div>`
+            : "",
+          event.kind === "TOKEN"
+            ? `<div class="metric"><span class="label">Token category</span><span class="value"><code>${escapeHtml(event.category)}</code></span></div>
+               <div class="metric"><span class="label">Token genesis</span><span class="value"><code>${escapeHtml(event.tokenGenesisTxid)}</code></span></div>`
+            : "",
+          event.kind === "BUY"
+            ? `<div class="metric"><span class="label">BCH in sats</span><span class="value">${escapeHtml(event.bchAmountInSats)}</span></div>`
+            : "",
+          event.kind === "SELL"
+            ? `<div class="metric"><span class="label">Tokens in</span><span class="value">${escapeHtml(event.tokenAmountIn)}</span></div>`
+            : ""
+        ].join("");
 
   return `<!doctype html>
 <html lang="en">
@@ -292,6 +328,14 @@ const renderTxPage = (txid: string, decoded: Awaited<ReturnType<typeof getDecode
       <h1>Local Tx ${escapeHtml(txid)}</h1>
     </header>
     <main>
+      ${
+        event === undefined
+          ? ""
+          : `<section>
+              <h2>Launch Event</h2>
+              <div class="grid">${eventMetrics}</div>
+            </section>`
+      }
       <section>
         <h2>AMM / CashVM Proof</h2>
         ${
@@ -328,6 +372,12 @@ const serializeSnapshot = async () => {
     blockCount: snapshot.blockCount,
     graduation: snapshot.replay.graduation,
     history: snapshot.replay.history.map((entry) => ({
+      ...(entry.event.input.kind === "TOKEN"
+        ? {
+            category: entry.event.input.category,
+            tokenGenesisTxid: entry.event.input.tokenGenesisTxid
+          }
+        : {}),
       height: entry.event.height,
       kind: entry.event.input.kind,
       quote: entry.quote,
@@ -345,6 +395,7 @@ const serializeSnapshot = async () => {
           remainingTokenSupply: snapshot.replay.launch.curve.maxSupply - snapshot.replay.launch.curve.currentSupply,
           status: snapshot.replay.launch.status
         },
+    launchAmmProofPack: snapshot.launchAmmProofPack,
     pools: snapshot.pools,
     proofPack: snapshot.proofPack,
     tokenProofs: snapshot.tokenProofs,
@@ -423,6 +474,12 @@ const server = http.createServer(async (request, response) => {
     if (request.method === "POST" && url.pathname === "/api/proof-pack") {
       const result = await runDemoAmmProofPack();
       json(response, 200, { txid: result.tokenToBchTxid, ...result });
+      return;
+    }
+
+    if (request.method === "POST" && url.pathname === "/api/launch-proof-pack") {
+      const result = await runDemoLaunchAmmProofPack();
+      json(response, 200, { txid: result.ammProofPack.tokenToBchTxid, ...result });
       return;
     }
 

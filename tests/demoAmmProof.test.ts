@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   auditDemoAmmTradeTransition,
   buildDemoAmmProofPackReceipt,
+  buildDemoLaunchAmmProofPackReceipt,
   demoAmmPoolMarkerPrefix,
   encodeDemoAmmPoolMarkerText,
   encodeDemoAmmTradeMarkerText,
@@ -317,6 +318,98 @@ describe("demo AMM pool proof helpers", () => {
       auditTxids: [],
       problems: ["No complete BCH-to-token then token-to-BCH AMM proof pair was found."],
       status: "missing"
+    });
+  });
+
+  it("builds a verified launch-to-AMM proof-pack receipt from bound token and swap audits", () => {
+    const category = "aa".repeat(32);
+
+    expect(
+      buildDemoLaunchAmmProofPackReceipt({
+        history: [
+          { height: 10, kind: "CREATE", statusAfter: "active", txid: "01".repeat(32) },
+          {
+            category,
+            height: 11,
+            kind: "TOKEN",
+            statusAfter: "active",
+            tokenGenesisTxid: "02".repeat(32),
+            txid: "03".repeat(32)
+          },
+          { height: 12, kind: "GRADUATE", statusAfter: "graduated", txid: "04".repeat(32) }
+        ],
+        pools: [{ ...pool, height: 13, tokenData: { ...pool.tokenData, category }, txid: "05".repeat(32) }],
+        tokenProofs: [
+          {
+            height: 10,
+            tokenData: { amount: "900000", category },
+            txid: "02".repeat(32)
+          }
+        ],
+        transitionAudits: [
+          {
+            category,
+            height: 14,
+            previousPoolTxid: "05".repeat(32),
+            problems: [],
+            side: "BCH_TO_TOKEN",
+            status: "verified",
+            txid: "06".repeat(32)
+          },
+          {
+            category,
+            height: 15,
+            previousPoolTxid: "06".repeat(32),
+            problems: [],
+            side: "TOKEN_TO_BCH",
+            status: "verified",
+            txid: "07".repeat(32)
+          }
+        ]
+      })
+    ).toMatchObject({
+      ammProofPack: {
+        auditTxids: ["06".repeat(32), "07".repeat(32)],
+        category,
+        status: "verified"
+      },
+      poolTxid: "05".repeat(32),
+      problems: [],
+      status: "verified",
+      tokenBindingTxid: "03".repeat(32),
+      tokenCategory: category,
+      tokenGenesisTxid: "02".repeat(32)
+    });
+  });
+
+  it("fails launch-to-AMM proof packs when category binding does not reach a verified AMM pair", () => {
+    const category = "aa".repeat(32);
+
+    expect(
+      buildDemoLaunchAmmProofPackReceipt({
+        history: [
+          { height: 10, kind: "CREATE", statusAfter: "active", txid: "01".repeat(32) },
+          {
+            category,
+            height: 11,
+            kind: "TOKEN",
+            statusAfter: "active",
+            tokenGenesisTxid: "02".repeat(32),
+            txid: "03".repeat(32)
+          },
+          { height: 12, kind: "GRADUATE", statusAfter: "graduated", txid: "04".repeat(32) }
+        ],
+        pools: [{ ...pool, height: 10, tokenData: { ...pool.tokenData, category }, txid: "05".repeat(32) }],
+        tokenProofs: [],
+        transitionAudits: []
+      })
+    ).toMatchObject({
+      problems: [
+        "Bound CashToken genesis output was not found on chain.",
+        "Launch AMM pool was not created after the CashToken binding event.",
+        "AMM proof pack: No complete BCH-to-token then token-to-BCH AMM proof pair was found."
+      ],
+      status: "failed"
     });
   });
 

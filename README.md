@@ -20,6 +20,9 @@ math, and production-grade safety checks.
 - BCHN regtest AMM proof that moves a real CashToken output into a CashVM P2SH
   pool UTXO, swaps BCH into tokens, and swaps tokens back into BCH by spending
   and recreating the pool.
+- One-click launch-to-AMM proof that binds a pump-style launch to a real
+  CashToken category on chain, creates the CashVM pool, and verifies both AMM
+  swap directions.
 - BCHN raw transaction safety helper that checks `testmempoolaccept` before
   broadcasting.
 
@@ -51,11 +54,12 @@ submits BCHN transactions itself, mines each action, can mint a real CashToken
 output, can fund and spend a simple CashVM P2SH contract, can create and swap
 both directions against a CashVM-held AMM pool UTXO, renders decoded AMM trade
 history plus reserve-transition and CashVM spend audit rows, can run a
-one-click AMM proof pack, and links each trade, event, token, and contract
-transaction to a local transaction view under `/tx/<txid>`. AMM swap
-transaction pages include a compact AMM/CashVM proof summary, decoded trade
-marker, reserve-transition audit, and P2SH redeem-script spend audit for that
-exact transaction.
+one-click AMM proof pack, can run a one-click launch-to-AMM proof pack, and
+links each trade, event, token, and contract transaction to a local transaction
+view under `/tx/<txid>`. Launch event pages show decoded event details. AMM
+swap transaction pages include a compact AMM/CashVM proof summary, decoded
+trade marker, reserve-transition audit, and P2SH redeem-script spend audit for
+that exact transaction.
 
 Stop it when finished:
 

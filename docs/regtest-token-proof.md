@@ -77,10 +77,17 @@ The current implementation uses BCHN RPC directly, without Fulcrum:
 - `/api/proof-pack` is the one-click path: the backend mines a fresh
   BCH-to-token swap and a fresh token-to-BCH swap, then returns the latest
   verified proof receipt and local explorer links.
+- `/api/launch-proof-pack` is the launch-to-AMM path: the backend ensures the
+  pump-style launch is graduated, mines a `BCHEX1|TOKEN|<category>|<genesis>`
+  binding event for a real CashToken, creates a CashVM pool for that category,
+  runs both AMM swap directions, and returns only after the chain-derived
+  launch/AMM receipt verifies.
 - `/tx/<swap-txid>` returns decoded `ammTrade` and `ammTransitionAudit` fields,
   so the explorer link itself shows marker data, expected reserves, actual
   reserves, previous pool spend confirmation, CashVM P2SH spend status, and
   verification status.
+- `/tx/<launch-event-txid>` shows decoded launch event details, including TOKEN
+  binding category and token genesis transaction ids.
 
 The current CashVM script gates custody by backend signature. The next hardening
 milestone is a covenant template that validates token category continuity,

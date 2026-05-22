@@ -138,10 +138,13 @@ There is now also a local event-backed proof UI:
 - Click run full AMM proof to let the backend execute a fresh BCH-to-token swap
   and token-to-BCH swap, then verify the latest proof pair from chain-derived
   reserve audits and CashVM P2SH spend audits.
+- Click run launch to AMM proof to bind the launch to a mined CashToken
+  category, create the CashVM pool for that category, execute both AMM swap
+  directions, and verify the composed launch/AMM receipt from chain data.
 - The page reconstructs state from mined OP_RETURN event transactions, renders
-  `Latest Proof Pack`, `AMM Trades`, and `AMM Reserve Audit` tables from
-  `/api/state`, and links trade, event, token, and contract rows to local
-  `/tx/<txid>` transaction views.
+  `Launch To AMM Proof`, `Latest Proof Pack`, `AMM Trades`, and `AMM Reserve
+  Audit` tables from `/api/state`, and links trade, event, token, and contract
+  rows to local `/tx/<txid>` transaction views.
 - AMM swap transaction views include the decoded trade marker, matching
   reserve-transition audit, and CashVM P2SH redeem-script spend audit, so the
   proof-pack links can be opened directly.

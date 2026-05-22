@@ -3,6 +3,7 @@ import {
   decodeDemoEventText,
   encodeDemoEventText,
   parseOpReturnEvent,
+  parseOpReturnText,
   replayDemoEvents,
   type DemoChainEvent
 } from "../src/demo/events.js";
@@ -22,6 +23,18 @@ describe("demo on-chain event replay", () => {
 
     expect(text).toBe("BCHEX1|CREATE|PUMP|0|900000|100000|1000000|100|300000");
     expect(decodeDemoEventText(text)).toMatchObject({ kind: "CREATE", symbol: "PUMP" });
+
+    const tokenText = encodeDemoEventText({
+      category: "AA".repeat(32),
+      kind: "TOKEN",
+      tokenGenesisTxid: "BB".repeat(32)
+    });
+    expect(tokenText).toBe(`BCHEX1|TOKEN|${"aa".repeat(32)}|${"bb".repeat(32)}`);
+    expect(decodeDemoEventText(tokenText)).toEqual({
+      category: "aa".repeat(32),
+      kind: "TOKEN",
+      tokenGenesisTxid: "bb".repeat(32)
+    });
   });
 
   it("parses OP_RETURN script bytecode", () => {
@@ -31,6 +44,23 @@ describe("demo on-chain event replay", () => {
     expect(parseOpReturnEvent(script)).toEqual({
       bchAmountInSats: 100_000n,
       kind: "BUY"
+    });
+  });
+
+  it("parses long PUSHDATA1 OP_RETURN launch binding text", () => {
+    const text = encodeDemoEventText({
+      category: "aa".repeat(32),
+      kind: "TOKEN",
+      tokenGenesisTxid: "bb".repeat(32)
+    });
+    const payload = Buffer.from(text, "utf8");
+    const script = Buffer.concat([Buffer.from([0x6a, 0x4c, payload.length]), payload]).toString("hex");
+
+    expect(parseOpReturnText(script)).toBe(text);
+    expect(parseOpReturnEvent(script)).toEqual({
+      category: "aa".repeat(32),
+      kind: "TOKEN",
+      tokenGenesisTxid: "bb".repeat(32)
     });
   });
 
@@ -51,18 +81,26 @@ describe("demo on-chain event replay", () => {
         time: 1,
         txid: "02".repeat(32)
       },
-      { height: 2, input: { bchAmountInSats: 10_000n, kind: "BUY" }, time: 2, txid: "03".repeat(32) },
-      { height: 3, input: { bchAmountInSats: 25_000n, kind: "BUY" }, time: 3, txid: "04".repeat(32) },
-      { height: 4, input: { kind: "SELL", tokenAmountIn: 20_000n }, time: 4, txid: "05".repeat(32) },
-      { height: 5, input: { bchAmountInSats: 300_000n, kind: "BUY" }, time: 5, txid: "06".repeat(32) },
-      { height: 6, input: { kind: "GRADUATE" }, time: 6, txid: "07".repeat(32) }
+      {
+        height: 2,
+        input: { category: "aa".repeat(32), kind: "TOKEN", tokenGenesisTxid: "08".repeat(32) },
+        time: 2,
+        txid: "09".repeat(32)
+      },
+      { height: 3, input: { bchAmountInSats: 10_000n, kind: "BUY" }, time: 3, txid: "03".repeat(32) },
+      { height: 4, input: { bchAmountInSats: 25_000n, kind: "BUY" }, time: 4, txid: "04".repeat(32) },
+      { height: 5, input: { kind: "SELL", tokenAmountIn: 20_000n }, time: 5, txid: "05".repeat(32) },
+      { height: 6, input: { bchAmountInSats: 300_000n, kind: "BUY" }, time: 6, txid: "06".repeat(32) },
+      { height: 7, input: { kind: "GRADUATE" }, time: 7, txid: "07".repeat(32) }
     ];
 
     const replay = replayDemoEvents(events);
 
     expect(replay.launch?.status).toBe("graduated");
+    expect(replay.launch?.asset.category).toBe("aa".repeat(32));
+    expect(replay.graduation?.asset.category).toBe("aa".repeat(32));
     expect(replay.graduation?.bchAmountSats).toBeGreaterThan(300_000n);
     expect(replay.graduation?.tokenAmount).toBeGreaterThan(0n);
-    expect(replay.history).toHaveLength(6);
+    expect(replay.history).toHaveLength(7);
   });
 });

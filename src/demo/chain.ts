@@ -4,6 +4,7 @@ import { BchnRpcClient } from "../node/rpc.js";
 import {
   auditDemoAmmTradeTransition,
   buildDemoAmmProofPackReceipt,
+  buildDemoLaunchAmmProofPackReceipt,
   demoAmmSwapFeeSats,
   demoAmmTokenOutputDustSats,
   demoAmmWalletChangeDustSats,
@@ -20,10 +21,19 @@ import {
   summarizeDemoAmmPool,
   type DemoAmmProofPackReceipt,
   type DemoAmmPoolUtxo,
-  type DemoAmmTransitionAudit
+  type DemoAmmTransitionAudit,
+  type DemoLaunchAmmProofPackReceipt
 } from "./ammProof.js";
 import { encodeCashVmProofText, extractFinalPushDataHex, parseCashVmProofScript } from "./cashVmProof.js";
-import { eventHexToText, eventTextToHex, parseOpReturnEvent, replayDemoEvents, type DemoChainEvent, type DemoEventInput } from "./events.js";
+import {
+  encodeDemoEventText,
+  eventTextToHex,
+  parseOpReturnEvent,
+  parseOpReturnText,
+  replayDemoEvents,
+  type DemoChainEvent,
+  type DemoEventInput
+} from "./events.js";
 import { auditDemoP2shSpend, createDemoOperatorP2shContract, deriveDemoP2shContract } from "./operatorContract.js";
 import { summarizeDemoTokenData, type DemoTokenData } from "./tokenProof.js";
 
@@ -111,6 +121,7 @@ interface TestMempoolAcceptResult {
 export interface DemoChainSnapshot {
   readonly blockCount: number;
   readonly events: readonly DemoChainEvent[];
+  readonly launchAmmProofPack: DemoLaunchAmmProofPackReceipt;
   readonly pools: readonly DemoAmmPoolUtxo[];
   readonly proofPack: DemoAmmProofPackReceipt;
   readonly replay: ReturnType<typeof replayDemoEvents>;
@@ -166,8 +177,29 @@ export interface DemoAmmProofPackRun {
   readonly transitionAudits: readonly DemoAmmTransitionAuditProof[];
 }
 
+export interface DemoLaunchAmmProofPackRun {
+  readonly ammProofPack: DemoAmmProofPackRun;
+  readonly completedHeight: number;
+  readonly launchAmmProofPack: DemoLaunchAmmProofPackReceipt;
+  readonly startedHeight: number;
+  readonly tokenBindingTxid: string;
+  readonly tokenCategory: string;
+  readonly tokenGenesisTxid: string;
+}
+
 const config = loadConfig();
 const rpc = new BchnRpcClient(config);
+
+const defaultDemoLaunchCreateInput = {
+  decimals: 0,
+  feeBps: 100,
+  graduationThresholdBchSats: 300_000n,
+  kind: "CREATE",
+  maxSupply: 900_000n,
+  symbol: "PUMP",
+  virtualBchReserveSats: 100_000n,
+  virtualTokenReserve: 1_000_000n
+} as const satisfies DemoEventInput;
 
 const satsToBch = (sats: bigint): string => {
   const whole = sats / 100_000_000n;
@@ -464,6 +496,20 @@ export const scanDemoEvents = async (): Promise<readonly DemoChainEvent[]> => {
   return events;
 };
 
+const launchAmmProofHistory = (history: ReturnType<typeof replayDemoEvents>["history"]) =>
+  history.map((entry) => ({
+    ...(entry.event.input.kind === "TOKEN"
+      ? {
+          category: entry.event.input.category,
+          tokenGenesisTxid: entry.event.input.tokenGenesisTxid
+        }
+      : {}),
+    height: entry.event.height,
+    kind: entry.event.input.kind,
+    ...(entry.statusAfter === undefined ? {} : { statusAfter: entry.statusAfter }),
+    txid: entry.event.txid
+  }));
+
 export const getDemoSnapshot = async (): Promise<DemoChainSnapshot> => {
   const [blockCount, events, pools, tokenProofs, trades, transitionAudits, vmProofs, utxos] = await Promise.all([
     rpc.call<number>("getblockcount"),
@@ -475,13 +521,21 @@ export const getDemoSnapshot = async (): Promise<DemoChainSnapshot> => {
     scanDemoCashVmProofs(),
     findSpendableUtxos()
   ]);
+  const replay = replayDemoEvents(events);
+  const proofPack = buildDemoAmmProofPackReceipt(transitionAudits);
 
   return {
     blockCount,
     events,
     pools,
-    proofPack: buildDemoAmmProofPackReceipt(transitionAudits),
-    replay: replayDemoEvents(events),
+    launchAmmProofPack: buildDemoLaunchAmmProofPackReceipt({
+      history: launchAmmProofHistory(replay.history),
+      pools,
+      tokenProofs,
+      transitionAudits
+    }),
+    proofPack,
+    replay,
     tokenProofs,
     transitionAudits,
     trades,
@@ -525,20 +579,26 @@ const signAndSubmitMany = async (raw: string, utxos: readonly SpendableUtxo[]): 
   return rpc.call<string>("sendrawtransaction", [signed.hex]);
 };
 
-const activeAmmPool = async (): Promise<DemoAmmPoolUtxo | undefined> =>
-  (await scanDemoAmmPools()).filter((pool) => pool.active).at(-1);
+const activeAmmPool = async (category?: string): Promise<DemoAmmPoolUtxo | undefined> =>
+  (await scanDemoAmmPools())
+    .filter(
+      (pool) => pool.active && (category === undefined || pool.tokenData.category.toLowerCase() === category.toLowerCase())
+    )
+    .at(-1);
 
-export const createDemoAmmPool = async (): Promise<DemoAmmPoolUtxo> => {
-  const existingPool = await activeAmmPool();
+export const createDemoAmmPool = async (category?: string): Promise<DemoAmmPoolUtxo> => {
+  const existingPool = await activeAmmPool(category);
   if (existingPool !== undefined) {
     return existingPool;
   }
 
-  const [tokenUtxo] = await findDemoTokenUtxos(demoAddress);
+  const tokenUtxo = (await findDemoTokenUtxos(demoAddress)).find(
+    (utxo) => category === undefined || utxo.tokenData?.category.toLowerCase() === category.toLowerCase()
+  );
   if (tokenUtxo === undefined || tokenUtxo.tokenData === undefined) {
     throw new Error("Mint a real CashToken before creating the AMM pool.");
   }
-  requireDemoAmmPoolTokenData(tokenUtxo.tokenData);
+  requireDemoAmmPoolTokenData(tokenUtxo.tokenData, category);
 
   const feeSats = 1_000n;
   const poolValueSats = tokenUtxo.amountSats - feeSats;
@@ -573,13 +633,14 @@ export const createDemoAmmPool = async (): Promise<DemoAmmPoolUtxo> => {
 
 export const swapDemoAmmPool = async (
   bchAmountInSats = 1_000_000n,
-  feeBps = 30
+  feeBps = 30,
+  category?: string
 ): Promise<{
   readonly nextPool: DemoAmmPoolUtxo;
   readonly tokenAmountOut: string;
   readonly txid: string;
 }> => {
-  const pool = await activeAmmPool();
+  const pool = await activeAmmPool(category);
   if (pool === undefined || pool.tokenData.amount === undefined) {
     throw new Error("Create an AMM pool before swapping.");
   }
@@ -665,20 +726,24 @@ export const swapDemoAmmPool = async (
   };
 };
 
-export const runDemoAmmProofPack = async (): Promise<DemoAmmProofPackRun> => {
+export const runDemoAmmProofPack = async (category?: string): Promise<DemoAmmProofPackRun> => {
   await ensureDemoFunding();
   const startedHeight = await rpc.call<number>("getblockcount");
-  let pool = await activeAmmPool();
+  let pool = await activeAmmPool(category);
   let tokenGenesisTxid: string | undefined;
 
   if (pool === undefined) {
-    const token = await createDemoCashToken();
-    tokenGenesisTxid = token.tokenGenesisTxid;
-    pool = await createDemoAmmPool();
+    if (category === undefined) {
+      const token = await createDemoCashToken();
+      tokenGenesisTxid = token.tokenGenesisTxid;
+      pool = await createDemoAmmPool(token.category);
+    } else {
+      pool = await createDemoAmmPool(category);
+    }
   }
 
-  const bchToToken = await swapDemoAmmPool(1_000_000n);
-  const tokenToBch = await sellDemoAmmTokens(50n);
+  const bchToToken = await swapDemoAmmPool(1_000_000n, 30, pool.tokenData.category);
+  const tokenToBch = await sellDemoAmmTokens(50n, 30, pool.tokenData.category);
   const snapshot = await getDemoSnapshot();
   const transitionAudits = snapshot.transitionAudits.filter(
     (audit) => audit.txid === bchToToken.txid || audit.txid === tokenToBch.txid
@@ -707,14 +772,15 @@ export const runDemoAmmProofPack = async (): Promise<DemoAmmProofPackRun> => {
 
 export const sellDemoAmmTokens = async (
   tokenAmountIn = 50n,
-  feeBps = 30
+  feeBps = 30,
+  category?: string
 ): Promise<{
   readonly bchAmountOutSats: string;
   readonly nextPool: DemoAmmPoolUtxo;
   readonly tokenAmountIn: string;
   readonly txid: string;
 }> => {
-  const pool = await activeAmmPool();
+  const pool = await activeAmmPool(category);
   if (pool === undefined || pool.tokenData.amount === undefined) {
     throw new Error("Create an AMM pool before selling tokens.");
   }
@@ -811,6 +877,84 @@ export const sellDemoAmmTokens = async (
   };
 };
 
+const ensureDemoLaunchGraduated = async (): Promise<void> => {
+  let snapshot = await getDemoSnapshot();
+  if (snapshot.replay.launch === undefined) {
+    await submitDemoEvent(defaultDemoLaunchCreateInput);
+    await submitDemoEvent({ bchAmountInSats: 10_000n, kind: "BUY" });
+    await submitDemoEvent({ bchAmountInSats: 25_000n, kind: "BUY" });
+    await submitDemoEvent({ kind: "SELL", tokenAmountIn: 20_000n });
+    await submitDemoEvent({ bchAmountInSats: 300_000n, kind: "BUY" });
+    await submitDemoEvent({ kind: "GRADUATE" });
+    return;
+  }
+
+  for (let attempts = 0; attempts < 3; attempts += 1) {
+    snapshot = await getDemoSnapshot();
+    if (snapshot.replay.launch?.status !== "active") break;
+    await submitDemoEvent({ bchAmountInSats: 300_000n, kind: "BUY" });
+  }
+
+  snapshot = await getDemoSnapshot();
+  if (snapshot.replay.launch?.status === "graduationEligible") {
+    await submitDemoEvent({ kind: "GRADUATE" });
+    return;
+  }
+  if (snapshot.replay.launch?.status !== "graduated") {
+    throw new Error("Launch did not reach graduation.");
+  }
+};
+
+export const runDemoLaunchAmmProofPack = async (): Promise<DemoLaunchAmmProofPackRun> => {
+  await ensureDemoFunding();
+  const startedHeight = await rpc.call<number>("getblockcount");
+  await ensureDemoLaunchGraduated();
+
+  let snapshot = await getDemoSnapshot();
+  let tokenBinding = [...snapshot.events].reverse().find((event) => event.input.kind === "TOKEN");
+  let tokenCategory: string;
+  let tokenGenesisTxid: string;
+  let tokenBindingTxid: string;
+
+  if (tokenBinding?.input.kind === "TOKEN") {
+    tokenCategory = tokenBinding.input.category;
+    tokenGenesisTxid = tokenBinding.input.tokenGenesisTxid;
+    tokenBindingTxid = tokenBinding.txid;
+  } else {
+    const token = await createDemoCashToken();
+    tokenCategory = token.category;
+    tokenGenesisTxid = token.tokenGenesisTxid;
+    tokenBindingTxid = await submitDemoEvent({ category: tokenCategory, kind: "TOKEN", tokenGenesisTxid });
+    snapshot = await getDemoSnapshot();
+    tokenBinding = [...snapshot.events].reverse().find((event) => event.input.kind === "TOKEN");
+    if (tokenBinding?.input.kind !== "TOKEN" || tokenBinding.input.category !== tokenCategory) {
+      throw new Error("Launch CashToken binding event was not found after mining.");
+    }
+  }
+
+  await createDemoAmmPool(tokenCategory);
+  const ammProofPack = await runDemoAmmProofPack(tokenCategory);
+  snapshot = await getDemoSnapshot();
+
+  if (
+    snapshot.launchAmmProofPack.status !== "verified" ||
+    snapshot.launchAmmProofPack.tokenCategory !== tokenCategory ||
+    snapshot.launchAmmProofPack.ammProofPack.tokenToBchTxid !== ammProofPack.tokenToBchTxid
+  ) {
+    throw new Error("Fresh launch-to-AMM proof pack did not verify after mining.");
+  }
+
+  return {
+    ammProofPack,
+    completedHeight: snapshot.blockCount,
+    launchAmmProofPack: snapshot.launchAmmProofPack,
+    startedHeight,
+    tokenBindingTxid,
+    tokenCategory,
+    tokenGenesisTxid
+  };
+};
+
 export const createDemoCashVmProof = async (): Promise<DemoCashVmProof> => {
   await ensureDemoFunding();
   const contractValueSats = 2_000n;
@@ -868,25 +1012,7 @@ export const submitDemoEvent = async (event: DemoEventInput): Promise<string> =>
     throw new Error("Demo UTXO is too small to submit an event transaction.");
   }
 
-  const eventHex = eventTextToHex(
-    event.kind === "CREATE"
-      ? [
-          "BCHEX1",
-          "CREATE",
-          event.symbol,
-          event.decimals,
-          event.maxSupply,
-          event.virtualBchReserveSats,
-          event.virtualTokenReserve,
-          event.feeBps,
-          event.graduationThresholdBchSats
-        ].join("|")
-      : event.kind === "BUY"
-        ? ["BCHEX1", "BUY", event.bchAmountInSats].join("|")
-        : event.kind === "SELL"
-          ? ["BCHEX1", "SELL", event.tokenAmountIn].join("|")
-          : "BCHEX1|GRADUATE"
-  );
+  const eventHex = eventTextToHex(encodeDemoEventText(event));
 
   const raw = await rpc.call<string>("createrawtransaction", [
     [{ txid: utxo.txid, vout: utxo.vout }],
@@ -972,15 +1098,7 @@ export const getDecodedTransaction = async (txid: string) => {
     .map((output) => parseOpReturnEvent(output.scriptPubKey.hex))
     .find((entry) => entry !== undefined);
 
-  const text = tx.vout
-    .map((output) => {
-      const parsed = parseOpReturnEvent(output.scriptPubKey.hex);
-      if (parsed === undefined) return undefined;
-      const hex = output.scriptPubKey.hex;
-      const length = Number.parseInt(hex.slice(2, 4), 16);
-      return eventHexToText(hex.slice(4, 4 + length * 2));
-    })
-    .find((entry) => entry !== undefined);
+  const text = tx.vout.map((output) => parseOpReturnText(output.scriptPubKey.hex)).find((entry) => entry !== undefined);
 
   const cashVmProof = tx.vout
     .map((output) => parseCashVmProofScript(output.scriptPubKey.hex))

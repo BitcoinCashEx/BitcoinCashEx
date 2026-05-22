@@ -87,6 +87,31 @@ export interface DemoAmmProofPackReceipt {
   readonly tokenToBchTxid?: string;
 }
 
+export interface DemoLaunchAmmProofPackHistoryInput {
+  readonly category?: string;
+  readonly height: number;
+  readonly kind: string;
+  readonly statusAfter?: string;
+  readonly tokenGenesisTxid?: string;
+  readonly txid: string;
+}
+
+export interface DemoLaunchAmmProofPackReceipt {
+  readonly ammProofPack: DemoAmmProofPackReceipt;
+  readonly createTxid?: string;
+  readonly endHeight?: number;
+  readonly graduationHeight?: number;
+  readonly graduationTxid?: string;
+  readonly poolTxid?: string;
+  readonly problems: readonly string[];
+  readonly startHeight?: number;
+  readonly status: "failed" | "missing" | "verified";
+  readonly tokenBindingHeight?: number;
+  readonly tokenBindingTxid?: string;
+  readonly tokenCategory?: string;
+  readonly tokenGenesisTxid?: string;
+}
+
 export const demoAmmSwapFeeSats = 2_000n;
 export const demoAmmTokenOutputDustSats = 1_000n;
 export const demoAmmWalletChangeDustSats = 546n;
@@ -382,6 +407,98 @@ export const buildDemoAmmProofPackReceipt = (
     auditTxids: [],
     problems: ["No complete BCH-to-token then token-to-BCH AMM proof pair was found."],
     status: "missing"
+  };
+};
+
+export const buildDemoLaunchAmmProofPackReceipt = ({
+  history,
+  pools,
+  tokenProofs,
+  transitionAudits
+}: {
+  readonly history: readonly DemoLaunchAmmProofPackHistoryInput[];
+  readonly pools: readonly DemoAmmPoolUtxo[];
+  readonly tokenProofs: readonly {
+    readonly height: number;
+    readonly tokenData: DemoTokenData;
+    readonly txid: string;
+  }[];
+  readonly transitionAudits: readonly DemoAmmProofPackAuditInput[];
+}): DemoLaunchAmmProofPackReceipt => {
+  const orderedHistory = [...history].sort((left, right) => left.height - right.height || left.txid.localeCompare(right.txid));
+  const create = orderedHistory.find((entry) => entry.kind === "CREATE");
+  const reverseHistory = [...orderedHistory].reverse();
+  const graduation = reverseHistory.find((entry) => entry.kind === "GRADUATE" && entry.statusAfter === "graduated");
+  const tokenBinding = reverseHistory.find((entry) => entry.kind === "TOKEN");
+  const tokenCategory = tokenBinding?.category?.toLowerCase();
+  const problems: string[] = [];
+
+  if (create === undefined) {
+    problems.push("No launch CREATE event was found.");
+  }
+  if (graduation === undefined) {
+    problems.push("No graduated launch event was found.");
+  }
+  if (tokenBinding === undefined || tokenCategory === undefined || tokenBinding.tokenGenesisTxid === undefined) {
+    problems.push("No launch CashToken binding event was found.");
+  }
+
+  const matchingTokenProof =
+    tokenCategory === undefined || tokenBinding?.tokenGenesisTxid === undefined
+      ? undefined
+      : tokenProofs.find(
+          (proof) =>
+            proof.txid.toLowerCase() === tokenBinding.tokenGenesisTxid?.toLowerCase() &&
+            proof.tokenData.category.toLowerCase() === tokenCategory &&
+            proof.tokenData.amount !== undefined
+        );
+  if (tokenCategory !== undefined && tokenBinding?.tokenGenesisTxid !== undefined && matchingTokenProof === undefined) {
+    problems.push("Bound CashToken genesis output was not found on chain.");
+  }
+
+  const firstPool =
+    tokenCategory === undefined
+      ? undefined
+      : [...pools]
+          .filter((pool) => pool.tokenData.category.toLowerCase() === tokenCategory)
+          .sort((left, right) => left.height - right.height || left.txid.localeCompare(right.txid))[0];
+  if (tokenCategory !== undefined && firstPool === undefined) {
+    problems.push("No CashVM AMM pool was found for the bound launch token category.");
+  }
+  if (firstPool !== undefined && tokenBinding !== undefined && firstPool.height <= tokenBinding.height) {
+    problems.push("Launch AMM pool was not created after the CashToken binding event.");
+  }
+
+  const auditsForLaunch =
+    tokenCategory === undefined
+      ? []
+      : transitionAudits.filter((audit) => {
+          if (audit.category.toLowerCase() !== tokenCategory) return false;
+          if (firstPool !== undefined && audit.height <= firstPool.height) return false;
+          return true;
+        });
+  const ammProofPack = buildDemoAmmProofPackReceipt(auditsForLaunch);
+  if (ammProofPack.status !== "verified") {
+    problems.push(...ammProofPack.problems.map((problem) => `AMM proof pack: ${problem}`));
+  }
+  if (ammProofPack.category !== undefined && tokenCategory !== undefined && ammProofPack.category !== tokenCategory) {
+    problems.push("AMM proof pack category does not match the bound launch token category.");
+  }
+
+  const missing = create === undefined || graduation === undefined || tokenBinding === undefined;
+
+  return {
+    ammProofPack,
+    ...(create === undefined ? {} : { createTxid: create.txid }),
+    ...(ammProofPack.endHeight === undefined ? {} : { endHeight: ammProofPack.endHeight }),
+    ...(graduation === undefined ? {} : { graduationHeight: graduation.height, graduationTxid: graduation.txid }),
+    ...(firstPool === undefined ? {} : { poolTxid: firstPool.txid }),
+    problems,
+    ...(ammProofPack.startHeight === undefined ? {} : { startHeight: ammProofPack.startHeight }),
+    status: problems.length === 0 ? "verified" : missing ? "missing" : "failed",
+    ...(tokenBinding === undefined ? {} : { tokenBindingHeight: tokenBinding.height, tokenBindingTxid: tokenBinding.txid }),
+    ...(tokenCategory === undefined ? {} : { tokenCategory }),
+    ...(tokenBinding?.tokenGenesisTxid === undefined ? {} : { tokenGenesisTxid: tokenBinding.tokenGenesisTxid })
   };
 };
 

@@ -23,6 +23,7 @@ export type DemoEventInput =
     }
   | { readonly bchAmountInSats: bigint; readonly kind: "BUY" }
   | { readonly kind: "SELL"; readonly tokenAmountIn: bigint }
+  | { readonly category: string; readonly kind: "TOKEN"; readonly tokenGenesisTxid: string }
   | { readonly kind: "GRADUATE" };
 
 export interface DemoChainEvent {
@@ -67,6 +68,15 @@ const parseNumber = (name: string, value: string | undefined): number => {
   return Number.parseInt(value, 10);
 };
 
+const txidPattern = /^[0-9a-f]{64}$/i;
+
+const parseTxid = (name: string, value: string | undefined): string => {
+  if (value === undefined || !txidPattern.test(value)) {
+    throw new Error(`${name} must be a 32-byte transaction id.`);
+  }
+  return value.toLowerCase();
+};
+
 export const encodeDemoEventText = (event: DemoEventInput): string => {
   if (event.kind === "CREATE") {
     assertEventPart("symbol", event.symbol);
@@ -89,6 +99,10 @@ export const encodeDemoEventText = (event: DemoEventInput): string => {
 
   if (event.kind === "SELL") {
     return [eventPrefix, event.kind, event.tokenAmountIn.toString()].join("|");
+  }
+
+  if (event.kind === "TOKEN") {
+    return [eventPrefix, event.kind, parseTxid("category", event.category), parseTxid("tokenGenesisTxid", event.tokenGenesisTxid)].join("|");
   }
 
   return [eventPrefix, event.kind].join("|");
@@ -126,6 +140,14 @@ export const decodeDemoEventText = (text: string): DemoEventInput | undefined =>
     };
   }
 
+  if (kind === "TOKEN") {
+    return {
+      category: parseTxid("category", parts[2]),
+      kind,
+      tokenGenesisTxid: parseTxid("tokenGenesisTxid", parts[3])
+    };
+  }
+
   if (kind === "GRADUATE") {
     return { kind };
   }
@@ -137,7 +159,7 @@ export const eventTextToHex = (text: string): string => Buffer.from(text, "utf8"
 
 export const eventHexToText = (hex: string): string => Buffer.from(hex, "hex").toString("utf8");
 
-export const parseOpReturnEvent = (scriptHex: string): DemoEventInput | undefined => {
+export const parseOpReturnText = (scriptHex: string): string | undefined => {
   const bytes = Buffer.from(scriptHex, "hex");
   if (bytes[0] !== 0x6a || bytes[1] === undefined) return undefined;
 
@@ -151,8 +173,14 @@ export const parseOpReturnEvent = (scriptHex: string): DemoEventInput | undefine
   }
   if (length === undefined || bytes.length < offset + length) return undefined;
 
+  return bytes.subarray(offset, offset + length).toString("utf8");
+};
+
+export const parseOpReturnEvent = (scriptHex: string): DemoEventInput | undefined => {
+  const text = parseOpReturnText(scriptHex);
+  if (text === undefined) return undefined;
   try {
-    return decodeDemoEventText(bytes.subarray(offset, offset + length).toString("utf8"));
+    return decodeDemoEventText(text);
   } catch {
     return undefined;
   }
@@ -201,6 +229,25 @@ export const replayDemoEvents = (events: readonly DemoChainEvent[]): DemoReplayS
       const result = sellLaunchTokens(launch, event.input.tokenAmountIn);
       launch = result.nextLaunch;
       history.push({ event, quote: result.quote, statusAfter: launch.status });
+      continue;
+    }
+
+    if (event.input.kind === "TOKEN") {
+      launch = {
+        ...launch,
+        asset: {
+          ...launch.asset,
+          category: event.input.category
+        }
+      };
+      graduation =
+        graduation === undefined
+          ? undefined
+          : {
+              ...graduation,
+              asset: launch.asset
+            };
+      history.push({ event, statusAfter: launch.status });
       continue;
     }
 
