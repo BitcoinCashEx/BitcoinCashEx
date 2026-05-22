@@ -11,6 +11,8 @@ BitcoinCashEx currently implements off-chain deterministic primitives:
 - A local BCHN regtest UI that can mint a real CashToken, move it into a
   CashVM P2SH AMM pool UTXO, submit a backend-controlled BCH to token swap, and
   submit a token to BCH reverse swap.
+- A one-click launch-to-AMM proof that checks the AMM pool was seeded by
+  spending the bound CashToken genesis output.
 
 This is not a full Uniswap implementation yet. It is now a working local
 transaction proof for AMM pool custody and swap state transitions. The current
@@ -115,8 +117,9 @@ Reasons to start here:
 
 The on-chain proof plan is tracked in
 [regtest-token-proof.md](regtest-token-proof.md). The current codebase has a
-deterministic launch regression; it does not yet mine a real CashToken launch on
-BCHN regtest.
+deterministic launch regression plus a BCHN-only proof that binds the launch to a
+real CashToken and migrates the graduation amounts into an AMM pool. It is not
+yet a production launch covenant.
 
 There is now also a local event-backed proof UI:
 
@@ -140,8 +143,9 @@ There is now also a local event-backed proof UI:
   reserve audits and CashVM P2SH spend audits.
 - Click run launch to AMM proof to bind the launch to a mined CashToken
   category, create the CashVM pool for that category using the launch
-  graduation BCH/token amounts, execute both AMM swap directions, and verify
-  the composed launch/AMM receipt from chain data.
+  graduation BCH/token amounts, prove the pool spent the bound token genesis
+  output, execute both AMM swap directions, and verify the composed launch/AMM
+  receipt from chain data.
 - The page reconstructs state from mined OP_RETURN event transactions, renders
   `Launch To AMM Proof`, `Latest Proof Pack`, `AMM Trades`, and `AMM Reserve
   Audit` tables from `/api/state`, and links trade, event, token, and contract

@@ -11,9 +11,10 @@ token genesis transaction. It also funds and spends a P2SH CashVM contract that
 requires the backend operator key signature, moves the real CashToken output
 into that CashVM P2SH AMM pool UTXO, and executes a backend-submitted BCH to
 token swap plus a token to BCH reverse swap by spending and recreating that
-pool. This proves backend transaction submission, chain-derived state, native
-BCHN `tokenData`, CashVM spend plumbing, and AMM pool UTXO updates, but not yet
-CashVM-enforced covenant custody.
+pool. The launch-to-AMM receipt also verifies that the pool was funded by
+spending the bound CashToken genesis output. This proves backend transaction
+submission, chain-derived state, native BCHN `tokenData`, CashVM spend plumbing,
+and AMM pool UTXO updates, but not yet CashVM-enforced covenant custody.
 
 ## Practical Stack
 
@@ -80,8 +81,9 @@ The current implementation uses BCHN RPC directly, without Fulcrum:
 - `/api/launch-proof-pack` is the launch-to-AMM path: the backend ensures the
   pump-style launch is graduated, mines a `BCHEX1|TOKEN|<category>|<genesis>`
   binding event for a real CashToken, creates a CashVM pool for that category
-  with the launch graduation BCH/token amounts, runs both AMM swap directions,
-  and returns only after the chain-derived launch/AMM receipt verifies.
+  with the launch graduation BCH/token amounts, proves that the pool input spent
+  `<genesis>:0`, runs both AMM swap directions, and returns only after the
+  chain-derived launch/AMM receipt verifies.
 - `/tx/<swap-txid>` returns decoded `ammTrade` and `ammTransitionAudit` fields,
   so the explorer link itself shows marker data, expected reserves, actual
   reserves, previous pool spend confirmation, CashVM P2SH spend status, and

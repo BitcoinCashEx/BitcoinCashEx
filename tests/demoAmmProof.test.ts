@@ -33,6 +33,7 @@ describe("demo AMM pool proof helpers", () => {
   const pool: DemoAmmPoolUtxo = {
     active: true,
     height: 10,
+    inputOutpoints: [],
     scriptPubKey: "a914cd7b44d0b03f2d026d1e586d7ae18903b0d385f687",
     tokenData: {
       amount: "900000",
@@ -345,7 +346,15 @@ describe("demo AMM pool proof helpers", () => {
             txid: "03".repeat(32)
           }
         ],
-        pools: [{ ...pool, height: 13, tokenData: { ...pool.tokenData, category }, txid: "05".repeat(32) }],
+        pools: [
+          {
+            ...pool,
+            height: 13,
+            inputOutpoints: [`${"02".repeat(32)}:0`],
+            tokenData: { ...pool.tokenData, category },
+            txid: "05".repeat(32)
+          }
+        ],
         tokenProofs: [
           {
             height: 10,
@@ -381,6 +390,8 @@ describe("demo AMM pool proof helpers", () => {
         status: "verified"
       },
       poolTxid: "05".repeat(32),
+      poolFundingConfirmed: true,
+      poolFundingOutpoint: `${"02".repeat(32)}:0`,
       problems: [],
       status: "verified",
       tokenBindingTxid: "03".repeat(32),
@@ -421,8 +432,78 @@ describe("demo AMM pool proof helpers", () => {
       problems: [
         "Bound CashToken genesis output was not found on chain.",
         "Launch AMM pool was not created after the CashToken binding event.",
+        "Launch AMM pool did not spend the bound CashToken genesis output.",
         "AMM proof pack: No complete BCH-to-token then token-to-BCH AMM proof pair was found."
       ],
+      status: "failed"
+    });
+  });
+
+  it("fails launch-to-AMM proof packs when the AMM pool was seeded from a different token output", () => {
+    const category = "aa".repeat(32);
+
+    expect(
+      buildDemoLaunchAmmProofPackReceipt({
+        history: [
+          { height: 10, kind: "CREATE", statusAfter: "active", txid: "01".repeat(32) },
+          {
+            graduationBchAmountSats: "5000000000",
+            graduationTokenAmount: "900000",
+            height: 11,
+            kind: "GRADUATE",
+            statusAfter: "graduated",
+            txid: "04".repeat(32)
+          },
+          {
+            category,
+            height: 12,
+            kind: "TOKEN",
+            statusAfter: "active",
+            tokenGenesisTxid: "02".repeat(32),
+            txid: "03".repeat(32)
+          }
+        ],
+        pools: [
+          {
+            ...pool,
+            height: 13,
+            inputOutpoints: [`${"ff".repeat(32)}:0`],
+            tokenData: { ...pool.tokenData, category },
+            txid: "05".repeat(32)
+          }
+        ],
+        tokenProofs: [
+          {
+            height: 12,
+            tokenData: { amount: "900000", category },
+            txid: "02".repeat(32)
+          }
+        ],
+        transitionAudits: [
+          {
+            category,
+            height: 14,
+            previousPoolTxid: "05".repeat(32),
+            problems: [],
+            side: "BCH_TO_TOKEN",
+            status: "verified",
+            txid: "06".repeat(32)
+          },
+          {
+            category,
+            height: 15,
+            previousPoolTxid: "06".repeat(32),
+            problems: [],
+            side: "TOKEN_TO_BCH",
+            status: "verified",
+            txid: "07".repeat(32)
+          }
+        ]
+      })
+    ).toMatchObject({
+      expectedPoolFundingOutpoint: `${"02".repeat(32)}:0`,
+      poolFundingConfirmed: false,
+      problems: ["Launch AMM pool did not spend the bound CashToken genesis output."],
       status: "failed"
     });
   });

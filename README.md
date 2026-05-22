@@ -22,7 +22,8 @@ math, and production-grade safety checks.
   and recreating the pool.
 - One-click launch-to-AMM proof that binds a pump-style launch to a real
   CashToken category on chain, creates the CashVM pool with the launch
-  graduation BCH/token amounts, and verifies both AMM swap directions.
+  graduation BCH/token amounts, proves the pool spent the bound token genesis
+  output, and verifies both AMM swap directions.
 - BCHN raw transaction safety helper that checks `testmempoolaccept` before
   broadcasting.
 
@@ -59,7 +60,9 @@ links each trade, event, token, and contract transaction to a local transaction
 view under `/tx/<txid>`. Launch event pages show decoded event details. AMM
 swap transaction pages include a compact AMM/CashVM proof summary, decoded
 trade marker, reserve-transition audit, and P2SH redeem-script spend audit for
-that exact transaction.
+that exact transaction. The launch-to-AMM receipt also exposes the expected and
+actual pool-funding outpoint so the UI proves the AMM pool was seeded from the
+bound CashToken genesis output.
 
 Stop it when finished:
 

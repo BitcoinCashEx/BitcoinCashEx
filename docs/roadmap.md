@@ -33,6 +33,8 @@
 - [ ] Add buy, sell, and graduate transaction data models.
 - [ ] Add CashVM contract templates for curve state and migration.
 - [x] Add BCHN regtest CashToken mint, AMM pool, and swap proof.
+- [x] Add launch-to-AMM proof with graduation amounts and pool funding
+  provenance.
 - [ ] Add covenant-enforced regtest CashToken lifecycle tests.
 
 ## Phase 3: Indexing And State

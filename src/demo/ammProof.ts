@@ -26,6 +26,7 @@ export interface DemoAmmTradeProofInput {
 export interface DemoAmmPoolUtxo {
   readonly active: boolean;
   readonly height: number;
+  readonly inputOutpoints: readonly string[];
   readonly scriptPubKey: string;
   readonly tokenData: DemoTokenData;
   readonly txid: string;
@@ -106,8 +107,11 @@ export interface DemoLaunchAmmProofPackReceipt {
   readonly graduationHeight?: number;
   readonly graduationTokenAmount?: string;
   readonly graduationTxid?: string;
+  readonly expectedPoolFundingOutpoint?: string;
   readonly migratedPoolBchSats?: string;
   readonly migratedPoolTokenAmount?: string;
+  readonly poolFundingConfirmed?: boolean;
+  readonly poolFundingOutpoint?: string;
   readonly poolTxid?: string;
   readonly problems: readonly string[];
   readonly startHeight?: number;
@@ -497,6 +501,15 @@ export const buildDemoLaunchAmmProofPackReceipt = ({
   ) {
     problems.push("Launch AMM pool token reserve does not match the graduation migration amount.");
   }
+  const expectedPoolFundingOutpoint =
+    tokenBinding?.tokenGenesisTxid === undefined ? undefined : `${tokenBinding.tokenGenesisTxid.toLowerCase()}:0`;
+  const poolFundingOutpoint =
+    expectedPoolFundingOutpoint === undefined || firstPool === undefined
+      ? undefined
+      : firstPool.inputOutpoints.find((outpoint) => outpoint.toLowerCase() === expectedPoolFundingOutpoint);
+  if (firstPool !== undefined && expectedPoolFundingOutpoint !== undefined && poolFundingOutpoint === undefined) {
+    problems.push("Launch AMM pool did not spend the bound CashToken genesis output.");
+  }
 
   const auditsForLaunch =
     tokenCategory === undefined
@@ -525,11 +538,14 @@ export const buildDemoLaunchAmmProofPackReceipt = ({
       : { graduationBchAmountSats: graduation.graduationBchAmountSats }),
     ...(graduation === undefined ? {} : { graduationHeight: graduation.height, graduationTxid: graduation.txid }),
     ...(graduation?.graduationTokenAmount === undefined ? {} : { graduationTokenAmount: graduation.graduationTokenAmount }),
+    ...(expectedPoolFundingOutpoint === undefined ? {} : { expectedPoolFundingOutpoint }),
     ...(firstPool === undefined
       ? {}
       : {
           migratedPoolBchSats: firstPool.valueSats,
           migratedPoolTokenAmount: firstPool.tokenData.amount,
+          poolFundingConfirmed: poolFundingOutpoint !== undefined,
+          ...(poolFundingOutpoint === undefined ? {} : { poolFundingOutpoint }),
           poolTxid: firstPool.txid
         }),
     problems,

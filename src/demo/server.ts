@@ -192,6 +192,7 @@ const renderPage = (): string => `<!doctype html>
         const auditFailures = data.transitionAudits.filter((audit) => audit.status !== 'verified').length;
         const cashVmSpendFailures = data.transitionAudits.filter((audit) => !audit.cashVmSpend || audit.cashVmSpend.status !== 'verified').length;
         const launchPack = data.launchAmmProofPack;
+        const poolFundingOutpoint = launchPack.poolFundingOutpoint || launchPack.expectedPoolFundingOutpoint || '';
         const pack = data.proofPack;
         metrics.innerHTML = [
           metric('Height', data.blockCount),
@@ -205,12 +206,13 @@ const renderPage = (): string => `<!doctype html>
           metric('Pool BCH sats', activePool ? activePool.valueSats : 'not created'),
           metric('Pool tokens', activePool ? activePool.tokenData.amount : 'not created'),
           metric('Launch to AMM', launchPack.status),
+          metric('Launch pool funding', launchPack.poolFundingConfirmed ? 'verified' : launchPack.status === 'missing' ? 'missing' : 'failed'),
           metric('AMM audit', data.transitionAudits.length === 0 ? 'no swaps' : auditFailures === 0 ? 'verified' : auditFailures + ' failed'),
           metric('CashVM AMM spend', data.transitionAudits.length === 0 ? 'no swaps' : cashVmSpendFailures === 0 ? 'verified' : cashVmSpendFailures + ' failed')
         ].join('');
         launchProofPackView.innerHTML = launchPack.status === 'missing'
           ? '<p>No complete launch-to-AMM proof found yet.</p>' + (launchPack.problems.length === 0 ? '' : '<p class="error">' + launchPack.problems.join(' ') + '</p>')
-          : '<table><thead><tr><th>Status</th><th>Token Category</th><th>Graduation BCH</th><th>Pool BCH</th><th>Graduation Tokens</th><th>Pool Tokens</th><th>Token Binding</th><th>Graduation</th><th>Pool</th><th>AMM Proof</th></tr></thead><tbody><tr><td><span class="' + (launchPack.status === 'verified' ? 'ok' : 'bad') + '">' + launchPack.status + '</span></td><td><code>' + (launchPack.tokenCategory || '') + '</code></td><td>' + amount(launchPack.graduationBchAmountSats || '') + '</td><td>' + amount(launchPack.migratedPoolBchSats || '') + '</td><td>' + amount(launchPack.graduationTokenAmount || '') + '</td><td>' + amount(launchPack.migratedPoolTokenAmount || '') + '</td><td>' + maybeTxLink(launchPack.tokenBindingTxid) + '</td><td>' + maybeTxLink(launchPack.graduationTxid) + '</td><td>' + maybeTxLink(launchPack.poolTxid) + '</td><td>' + launchPack.ammProofPack.auditTxids.map(txLink).join(' ') + '</td></tr></tbody></table>' +
+          : '<table><thead><tr><th>Status</th><th>Token Category</th><th>Graduation BCH</th><th>Pool BCH</th><th>Graduation Tokens</th><th>Pool Tokens</th><th>Token Binding</th><th>Graduation</th><th>Pool</th><th>Pool Funding</th><th>Funding Outpoint</th><th>AMM Proof</th></tr></thead><tbody><tr><td><span class="' + (launchPack.status === 'verified' ? 'ok' : 'bad') + '">' + launchPack.status + '</span></td><td><code>' + (launchPack.tokenCategory || '') + '</code></td><td>' + amount(launchPack.graduationBchAmountSats || '') + '</td><td>' + amount(launchPack.migratedPoolBchSats || '') + '</td><td>' + amount(launchPack.graduationTokenAmount || '') + '</td><td>' + amount(launchPack.migratedPoolTokenAmount || '') + '</td><td>' + maybeTxLink(launchPack.tokenBindingTxid) + '</td><td>' + maybeTxLink(launchPack.graduationTxid) + '</td><td>' + maybeTxLink(launchPack.poolTxid) + '</td><td><span class="' + (launchPack.poolFundingConfirmed ? 'ok' : 'bad') + '">' + (launchPack.poolFundingConfirmed ? 'verified' : 'missing') + '</span></td><td><code>' + poolFundingOutpoint + '</code></td><td>' + launchPack.ammProofPack.auditTxids.map(txLink).join(' ') + '</td></tr></tbody></table>' +
             (launchPack.problems.length === 0 ? '' : '<p class="error">' + launchPack.problems.join(' ') + '</p>');
         proofPackView.innerHTML = pack.status === 'missing'
           ? '<p>No complete proof pack found yet.</p>'

@@ -302,6 +302,9 @@ export const scanDemoAmmPools = async (): Promise<readonly DemoAmmPoolUtxo[]> =>
         const pool = {
           active: txout !== null,
           height,
+          inputOutpoints: tx.vin.flatMap((input) =>
+            input.txid === undefined || input.vout === undefined ? [] : [`${input.txid}:${input.vout}`]
+          ),
           scriptPubKey: output.scriptPubKey.hex,
           tokenData: output.tokenData,
           txid: tx.txid,
