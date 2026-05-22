@@ -7,6 +7,7 @@ import {
   ensureDemoFunding,
   getDecodedTransaction,
   getDemoSnapshot,
+  sellDemoAmmTokens,
   swapDemoAmmPool,
   submitDemoEvent
 } from "./chain.js";
@@ -95,6 +96,8 @@ const renderPage = (): string => `<!doctype html>
           <button id="pool" class="secondary">Create AMM Pool</button>
           <input id="swapAmount" value="1000000" aria-label="Swap BCH amount sats" />
           <button id="swap" class="secondary">Swap BCH To Token</button>
+          <input id="ammSellAmount" value="50" aria-label="AMM sell token amount" />
+          <button id="ammSell" class="secondary">Swap Token To BCH</button>
           <button id="create">Create Token Launch</button>
           <input id="buyAmount" value="100000" aria-label="Buy amount sats" />
           <button id="buy">Buy</button>
@@ -174,6 +177,7 @@ const renderPage = (): string => `<!doctype html>
       document.getElementById('cashvm').onclick = () => post('/api/cashvm').catch((error) => setStatus(error.message, true));
       document.getElementById('pool').onclick = () => post('/api/pool').catch((error) => setStatus(error.message, true));
       document.getElementById('swap').onclick = () => post('/api/swap', { bchAmountInSats: document.getElementById('swapAmount').value }).catch((error) => setStatus(error.message, true));
+      document.getElementById('ammSell').onclick = () => post('/api/swap-token-to-bch', { tokenAmountIn: document.getElementById('ammSellAmount').value }).catch((error) => setStatus(error.message, true));
       document.getElementById('create').onclick = () => post('/api/create').catch((error) => setStatus(error.message, true));
       document.getElementById('buy').onclick = () => post('/api/buy', { bchAmountInSats: document.getElementById('buyAmount').value }).catch((error) => setStatus(error.message, true));
       document.getElementById('sell').onclick = () => post('/api/sell', { tokenAmountIn: document.getElementById('sellAmount').value }).catch((error) => setStatus(error.message, true));
@@ -256,6 +260,13 @@ const server = http.createServer(async (request, response) => {
     if (request.method === "POST" && url.pathname === "/api/swap") {
       const body = await parseBody(request);
       const result = await swapDemoAmmPool(bigintBody(body, "bchAmountInSats"));
+      json(response, 200, result);
+      return;
+    }
+
+    if (request.method === "POST" && url.pathname === "/api/swap-token-to-bch") {
+      const body = await parseBody(request);
+      const result = await sellDemoAmmTokens(bigintBody(body, "tokenAmountIn"));
       json(response, 200, result);
       return;
     }

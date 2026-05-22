@@ -3,7 +3,9 @@ import {
   encodeDemoAmmPoolMarkerText,
   parseDemoAmmPoolMarkerScript,
   quoteDemoAmmBuy,
+  quoteDemoAmmSell,
   requireDemoAmmPoolTokenData,
+  selectDemoAmmSellTokenUtxo,
   selectDemoAmmSwapFundingUtxo,
   summarizeDemoAmmPool,
   type DemoAmmPoolUtxo
@@ -39,6 +41,14 @@ describe("demo AMM pool proof helpers", () => {
     expect(quote.outputAmount).toBeGreaterThan(0n);
   });
 
+  it("quotes a pool sell using the token side as input", () => {
+    const quote = quoteDemoAmmSell(pool, 50n, 30);
+
+    expect(quote.feePaid).toBe(0n);
+    expect(quote.inputAfterFee).toBe(50n);
+    expect(quote.outputAmount).toBeGreaterThan(0n);
+  });
+
   it("rejects inactive or malformed pool UTXOs", () => {
     expect(() => summarizeDemoAmmPool({ ...pool, active: false })).toThrow("inactive");
     expect(() => summarizeDemoAmmPool({ ...pool, tokenData: { category: "aa".repeat(32) } })).toThrow(
@@ -56,6 +66,16 @@ describe("demo AMM pool proof helpers", () => {
     const utxos = [{ amountSats: 1_000n }, { amountSats: 1_003_546n }, { amountSats: 1_003_547n }];
 
     expect(selectDemoAmmSwapFundingUtxo(utxos, 1_000_000n)).toEqual({ amountSats: 1_003_547n });
+  });
+
+  it("selects a user token UTXO large enough for an AMM token sell", () => {
+    const utxos = [
+      { tokenData: { amount: "49", category: "aa".repeat(32) } },
+      { tokenData: { amount: "50", category: "bb".repeat(32) } },
+      { tokenData: { amount: "50", category: "aa".repeat(32) } }
+    ];
+
+    expect(selectDemoAmmSellTokenUtxo(utxos, "aa".repeat(32), 50n)).toEqual(utxos[2]);
   });
 
   it("uses an AMM marker to bind pool discovery to a token category", () => {

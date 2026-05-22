@@ -19,7 +19,8 @@
 - CashToken category, decimal, and symbol validation.
 - Constant-product AMM quote and reserve transition math.
 - BCHN regtest AMM pool proof that stores real CashTokens and BCH in a CashVM
-  P2SH UTXO, then spends and recreates that pool after a backend-submitted swap.
+  P2SH UTXO, then spends and recreates that pool after backend-submitted swaps
+  in both BCH-to-token and token-to-BCH directions.
 - Virtual-reserve bonding curve buy/sell quote math.
 - Liquidity initialization with locked minimum liquidity.
 - Proportional add-liquidity quote with excess-side refunds.
@@ -61,11 +62,14 @@ The local demo now proves the first on-chain AMM path on BCHN regtest:
 - New CashVM pool and proof spends use a P2SH-wrapped P2PKH redeem script tied
   to the backend operator key, so they require the backend signature instead of
   being anyone-can-spend.
-- A swap transaction spends the active pool UTXO plus a backend BCH UTXO.
-- The transaction recreates the pool with increased BCH reserves and reduced
+- A BCH-to-token swap transaction spends the active pool UTXO plus a backend
+  BCH UTXO, then recreates the pool with increased BCH reserves and reduced
   token reserves.
-- The transaction pays CashTokens to a second predefined backend-controlled
-  address.
+- A token-to-BCH swap transaction spends the active pool UTXO plus the
+  predefined user's CashToken UTXO, then recreates the pool with increased
+  token reserves and reduced BCH reserves.
+- The swap transactions pay CashTokens or BCH back to the predefined
+  backend-controlled user address.
 - `/api/state` distinguishes inactive spent pool UTXOs from the current active
   pool UTXO by using BCHN `gettxout`.
 
@@ -75,9 +79,13 @@ Current local proof values:
   `6d21a365013c10636de2f32635ab4a087f4d0788e695b9768e1192bf750fcff8`.
 - Swap transaction:
   `1ee2ae9cdc69c563f68d0007c2a93d8896b970b8a7324cebca0e0dea1cfa8a29`.
-- Active pool reserves after the swap: `5000997000` sats and `899821`
+- Reverse swap transaction:
+  `beb1fb6d5d33d8e3acbc0a494371f1ee2b287567ddaca84eb335b5b167099144`.
+- Active pool reserves after the reverse swap: `5000719128` sats and `899871`
   CashTokens.
-- Backend user payout after the swap: `179` CashTokens.
+- Backend user payout after the BCH-to-token swap: `179` CashTokens.
+- Backend user payout after the token-to-BCH swap: `275872` sats, with `129`
+  CashTokens returned as change.
 - Operator-gated CashVM proof spend:
   `e226c354e2dffefebd85762d64f34a453683489e8407800fe59e8411f65cd3b1`.
 - Current redeem script:
@@ -107,14 +115,16 @@ covenant that enforces the AMM reserve transition inside CashVM.
   operator key signature.
 - The UI can create a CashVM AMM pool UTXO and submit a backend-controlled BCH
   to CashToken swap against it.
+- The UI can also submit a backend-controlled token to BCH swap by spending the
+  predefined user's CashToken UTXO.
 - `/api/state` scans BCHN blocks and reconstructs launch state from chain
   events, token outputs, CashVM pool UTXOs, and CashVM spend proofs.
 - `/tx/<txid>` acts as a local transaction explorer for the mined event.
 
 This proves backend-controlled local-chain execution, real CashToken genesis,
 operator-gated CashVM contract spends, CashVM-held AMM pool UTXOs, backend
-swaps, and chain-derived UI state. It still does not prove a production CashVM
-covenant enforcing AMM reserve math.
+swaps in both AMM directions, and chain-derived UI state. It still does not
+prove a production CashVM covenant enforcing AMM reserve math.
 
 ## Current Validation
 
@@ -131,7 +141,7 @@ npm run node:health
 Current local result:
 
 - 14 test files.
-- 43 unit tests.
+- 45 unit tests.
 - TypeScript strict mode passes.
 - Build passes.
 - npm audit reports 0 vulnerabilities.

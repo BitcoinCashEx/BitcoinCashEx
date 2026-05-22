@@ -90,6 +90,21 @@ export const quoteDemoAmmBuy = (
   );
 };
 
+export const quoteDemoAmmSell = (
+  pool: DemoAmmPoolUtxo,
+  tokenAmountIn: bigint,
+  feeBps: number
+) => {
+  requireDemoAmmPoolTokenData(pool.tokenData);
+
+  return quoteConstantProductSwap(
+    tokenAmountIn,
+    BigInt(pool.tokenData.amount),
+    BigInt(pool.valueSats),
+    feeBps
+  );
+};
+
 export const selectDemoAmmSwapFundingUtxo = <Utxo extends { readonly amountSats: bigint }>(
   utxos: readonly Utxo[],
   bchAmountInSats: bigint
@@ -98,3 +113,14 @@ export const selectDemoAmmSwapFundingUtxo = <Utxo extends { readonly amountSats:
     bchAmountInSats + demoAmmTokenOutputDustSats + demoAmmSwapFeeSats + demoAmmWalletChangeDustSats + 1n;
   return utxos.find((utxo) => utxo.amountSats >= requiredWalletSats);
 };
+
+export const selectDemoAmmSellTokenUtxo = <Utxo extends { readonly tokenData?: DemoTokenData }>(
+  utxos: readonly Utxo[],
+  category: string,
+  tokenAmountIn: bigint
+): Utxo | undefined =>
+  utxos.find((utxo) => {
+    if (utxo.tokenData?.amount === undefined) return false;
+    if (utxo.tokenData.category.toLowerCase() !== category.toLowerCase()) return false;
+    return BigInt(utxo.tokenData.amount) >= tokenAmountIn;
+  });

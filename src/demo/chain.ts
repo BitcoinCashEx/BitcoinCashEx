@@ -8,7 +8,9 @@ import {
   encodeDemoAmmPoolMarkerText,
   parseDemoAmmPoolMarkerScript,
   quoteDemoAmmBuy,
+  quoteDemoAmmSell,
   requireDemoAmmPoolTokenData,
+  selectDemoAmmSellTokenUtxo,
   selectDemoAmmSwapFundingUtxo,
   summarizeDemoAmmPool,
   type DemoAmmPoolUtxo
@@ -510,6 +512,108 @@ export const swapDemoAmmPool = async (
   return {
     nextPool,
     tokenAmountOut: quote.outputAmount.toString(),
+    txid
+  };
+};
+
+export const sellDemoAmmTokens = async (
+  tokenAmountIn = 50n,
+  feeBps = 30
+): Promise<{
+  readonly bchAmountOutSats: string;
+  readonly nextPool: DemoAmmPoolUtxo;
+  readonly tokenAmountIn: string;
+  readonly txid: string;
+}> => {
+  const pool = await activeAmmPool();
+  if (pool === undefined || pool.tokenData.amount === undefined) {
+    throw new Error("Create an AMM pool before selling tokens.");
+  }
+  if (tokenAmountIn <= 0n) {
+    throw new Error("tokenAmountIn must be positive.");
+  }
+
+  const tokenUtxo = selectDemoAmmSellTokenUtxo(
+    await findDemoTokenUtxos(demoUserAddress),
+    pool.tokenData.category,
+    tokenAmountIn
+  );
+  if (tokenUtxo === undefined || tokenUtxo.tokenData?.amount === undefined) {
+    throw new Error("No sufficiently large predefined user token UTXO is available for AMM sell.");
+  }
+
+  const quote = quoteDemoAmmSell(pool, tokenAmountIn, feeBps);
+  const userBchOutSats = quote.outputAmount - demoAmmSwapFeeSats;
+  if (userBchOutSats <= dustLimitSats) {
+    throw new Error("AMM token sell output is too small after fees.");
+  }
+
+  const nextPoolValueSats = BigInt(pool.valueSats) - quote.outputAmount;
+  if (nextPoolValueSats <= dustLimitSats) {
+    throw new Error("AMM token sell would drain the pool BCH reserve.");
+  }
+
+  const userTokenAmount = BigInt(tokenUtxo.tokenData.amount);
+  const userTokenChange = userTokenAmount - tokenAmountIn;
+  const nextPoolTokenReserve = BigInt(pool.tokenData.amount) + tokenAmountIn;
+  const outputs: unknown[] = [
+    {
+      [demoCashVmAddress]: {
+        amount: satsToBch(nextPoolValueSats),
+        tokenData: {
+          ...pool.tokenData,
+          amount: nextPoolTokenReserve.toString()
+        }
+      }
+    }
+  ];
+
+  if (userTokenChange > 0n) {
+    outputs.push({
+      [demoUserAddress]: {
+        amount: satsToBch(userBchOutSats),
+        tokenData: {
+          amount: userTokenChange.toString(),
+          category: pool.tokenData.category
+        }
+      }
+    });
+  } else {
+    outputs.push({ [demoUserAddress]: satsToBch(userBchOutSats) });
+  }
+
+  outputs.push({ data: eventTextToHex(encodeDemoAmmPoolMarkerText(pool.tokenData.category)) });
+
+  const raw = await rpc.call<string>("createrawtransaction", [
+    [
+      { txid: pool.txid, vout: pool.vout },
+      { txid: tokenUtxo.txid, vout: tokenUtxo.vout }
+    ],
+    outputs
+  ]);
+  const txid = await signAndSubmitMany(raw, [
+    {
+      amountSats: BigInt(pool.valueSats),
+      redeemScript: demoCashVmRedeemScript,
+      scriptPubKey: demoCashVmScriptPubKey,
+      tokenData: pool.tokenData,
+      txid: pool.txid,
+      vout: pool.vout
+    },
+    tokenUtxo
+  ]);
+  await mineDemoBlock();
+
+  const [nextPool] = (await scanDemoAmmPools()).filter((entry) => entry.txid === txid);
+  if (nextPool === undefined) {
+    throw new Error("AMM sell pool output was not found after mining.");
+  }
+  summarizeDemoAmmPool(nextPool);
+
+  return {
+    bchAmountOutSats: userBchOutSats.toString(),
+    nextPool,
+    tokenAmountIn: tokenAmountIn.toString(),
     txid
   };
 };

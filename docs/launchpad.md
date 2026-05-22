@@ -9,7 +9,8 @@ BitcoinCashEx currently implements off-chain deterministic primitives:
 - Slippage checks.
 - BCHN RPC readiness and raw-transaction safety checks.
 - A local BCHN regtest UI that can mint a real CashToken, move it into a
-  CashVM P2SH AMM pool UTXO, and submit a backend-controlled BCH to token swap.
+  CashVM P2SH AMM pool UTXO, submit a backend-controlled BCH to token swap, and
+  submit a token to BCH reverse swap.
 
 This is not a full Uniswap implementation yet. It is now a working local
 transaction proof for AMM pool custody and swap state transitions. The current
@@ -81,6 +82,8 @@ Reasons to start here:
   `tests/launchpad.test.ts`.
 - Add BCHN-only CashToken mint, CashVM AMM pool, and backend swap proof. Done in
   `src/demo/chain.ts`, `src/demo/ammProof.ts`, and `tests/demoAmmProof.test.ts`.
+- Add two-sided BCH-to-token and token-to-BCH AMM demo swaps. Done in
+  `src/demo/chain.ts` and `src/demo/server.ts`.
 - Add transaction-builder data models for create, buy, sell, and graduate.
 - Add CashScript or libauth contract templates after the math has full property
   coverage.
@@ -122,5 +125,8 @@ There is now also a local event-backed proof UI:
   pool UTXO.
 - Click swap BCH to token to spend the active pool, recreate it with updated
   reserves, and pay CashTokens to the predefined backend user address.
+- Click swap token to BCH to spend the active pool and predefined user's
+  CashToken UTXO, recreate the pool, and pay BCH plus token change back to that
+  user address.
 - The page reconstructs state from mined OP_RETURN event transactions and links
   to local `/tx/<txid>` transaction views.

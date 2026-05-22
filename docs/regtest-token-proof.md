@@ -10,10 +10,10 @@ CashToken output by mining a pre-genesis transaction and spending vout `0` in a
 token genesis transaction. It also funds and spends a P2SH CashVM contract that
 requires the backend operator key signature, moves the real CashToken output
 into that CashVM P2SH AMM pool UTXO, and executes a backend-submitted BCH to
-token swap by spending and recreating that pool. This proves backend transaction
-submission, chain-derived state, native BCHN `tokenData`, CashVM spend
-plumbing, and AMM pool UTXO updates, but not yet CashVM-enforced covenant
-custody.
+token swap plus a token to BCH reverse swap by spending and recreating that
+pool. This proves backend transaction submission, chain-derived state, native
+BCHN `tokenData`, CashVM spend plumbing, and AMM pool UTXO updates, but not yet
+CashVM-enforced covenant custody.
 
 ## Practical Stack
 
@@ -60,6 +60,9 @@ The current implementation uses BCHN RPC directly, without Fulcrum:
 - `/api/swap` spends the active pool plus a backend BCH UTXO, recreates the
   pool with updated reserves, and pays CashTokens to the predefined user
   address.
+- `/api/swap-token-to-bch` spends the active pool plus the predefined user's
+  CashToken UTXO, recreates the pool with updated reserves, and pays BCH plus
+  token change to that user address.
 - `/api/state` scans mined blocks, `tokenData`, and live UTXO status to show the
   current active pool.
 
