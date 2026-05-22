@@ -26,6 +26,7 @@ export interface DemoAmmTradeProofInput {
 export interface DemoAmmPoolUtxo {
   readonly active: boolean;
   readonly height: number;
+  readonly scriptPubKey: string;
   readonly tokenData: DemoTokenData;
   readonly txid: string;
   readonly valueSats: string;
@@ -43,6 +44,13 @@ export interface DemoAmmTransitionAudit {
   readonly actualBchReserveSats: string;
   readonly actualTokenReserve: string;
   readonly category: string;
+  readonly cashVmSpend?: {
+    readonly derivedScriptPubKey?: string;
+    readonly expectedScriptPubKey: string;
+    readonly problems: readonly string[];
+    readonly redeemScript?: string;
+    readonly status: "failed" | "verified";
+  };
   readonly constantProductAfter: string;
   readonly constantProductBefore: string;
   readonly expectedBchReserveSats: string;

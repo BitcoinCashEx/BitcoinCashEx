@@ -72,13 +72,15 @@ The current implementation uses BCHN RPC directly, without Fulcrum:
 - `/api/state.transitionAudits` reconstructs each AMM swap from the previous
   CashVM pool UTXO, the decoded trade marker, and the recreated pool UTXO. It
   checks the previous pool outpoint is spent, expected reserves match actual
-  reserves, and the constant-product invariant does not decrease.
+  reserves, the constant-product invariant does not decrease, and the revealed
+  redeem script hashes back to the spent CashVM P2SH pool script.
 - `/api/proof-pack` is the one-click path: the backend mines a fresh
   BCH-to-token swap and a fresh token-to-BCH swap, then returns the latest
   verified proof receipt and local explorer links.
 - `/tx/<swap-txid>` returns decoded `ammTrade` and `ammTransitionAudit` fields,
   so the explorer link itself shows marker data, expected reserves, actual
-  reserves, previous pool spend confirmation, and verification status.
+  reserves, previous pool spend confirmation, CashVM P2SH spend status, and
+  verification status.
 
 The current CashVM script gates custody by backend signature. The next hardening
 milestone is a covenant template that validates token category continuity,

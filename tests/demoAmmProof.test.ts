@@ -32,6 +32,7 @@ describe("demo AMM pool proof helpers", () => {
   const pool: DemoAmmPoolUtxo = {
     active: true,
     height: 10,
+    scriptPubKey: "a914cd7b44d0b03f2d026d1e586d7ae18903b0d385f687",
     tokenData: {
       amount: "900000",
       category: "aa".repeat(32)

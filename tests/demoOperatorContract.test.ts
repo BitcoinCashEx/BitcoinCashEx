@@ -1,6 +1,6 @@
 import { hexToBin } from "@bitauth/libauth";
 import { describe, expect, it } from "vitest";
-import { createDemoOperatorP2shContract, deriveDemoP2shContract } from "../src/demo/operatorContract.js";
+import { auditDemoP2shSpend, createDemoOperatorP2shContract, deriveDemoP2shContract } from "../src/demo/operatorContract.js";
 
 describe("demo operator CashVM contract", () => {
   const privateKey = hexToBin("0000000000000000000000000000000000000000000000000000000000000001");
@@ -22,6 +22,37 @@ describe("demo operator CashVM contract", () => {
       address: "bchreg:prdpw30fk4ym6zl6rftfjuw806arpn26fveknc0qmt",
       redeemScript: "51",
       scriptPubKey: "a914da1745e9b549bd0bfa1a569971c77eba30cd5a4b87"
+    });
+  });
+
+  it("audits that a P2SH spend reveals the expected CashVM redeem script", () => {
+    const contract = createDemoOperatorP2shContract(privateKey);
+    const scriptSigWithFinalRedeemScript = `01aa4c${(contract.redeemScript.length / 2).toString(16).padStart(2, "0")}${contract.redeemScript}`;
+
+    expect(
+      auditDemoP2shSpend({
+        expectedScriptPubKey: contract.scriptPubKey,
+        scriptSigHex: scriptSigWithFinalRedeemScript
+      })
+    ).toEqual({
+      derivedScriptPubKey: contract.scriptPubKey,
+      expectedScriptPubKey: contract.scriptPubKey,
+      problems: [],
+      redeemScript: contract.redeemScript,
+      status: "verified"
+    });
+  });
+
+  it("flags P2SH spends that do not match the expected CashVM pool script", () => {
+    expect(
+      auditDemoP2shSpend({
+        expectedScriptPubKey: createDemoOperatorP2shContract(privateKey).scriptPubKey,
+        scriptSigHex: "0151"
+      })
+    ).toMatchObject({
+      problems: ["Redeem script hash does not match the spent CashVM P2SH pool script."],
+      redeemScript: "51",
+      status: "failed"
     });
   });
 });

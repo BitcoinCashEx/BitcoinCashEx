@@ -24,7 +24,7 @@ import {
 } from "./ammProof.js";
 import { encodeCashVmProofText, extractFinalPushDataHex, parseCashVmProofScript } from "./cashVmProof.js";
 import { eventHexToText, eventTextToHex, parseOpReturnEvent, replayDemoEvents, type DemoChainEvent, type DemoEventInput } from "./events.js";
-import { createDemoOperatorP2shContract, deriveDemoP2shContract } from "./operatorContract.js";
+import { auditDemoP2shSpend, createDemoOperatorP2shContract, deriveDemoP2shContract } from "./operatorContract.js";
 import { summarizeDemoTokenData, type DemoTokenData } from "./tokenProof.js";
 
 export const demoPrivateKeyHex = "0000000000000000000000000000000000000000000000000000000000000001";
@@ -270,6 +270,7 @@ export const scanDemoAmmPools = async (): Promise<readonly DemoAmmPoolUtxo[]> =>
         const pool = {
           active: txout !== null,
           height,
+          scriptPubKey: output.scriptPubKey.hex,
           tokenData: output.tokenData,
           txid: tx.txid,
           valueSats: bchToSats(output.value).toString(),
@@ -311,17 +312,17 @@ export const scanDemoAmmTrades = async (): Promise<readonly DemoAmmTradeProof[]>
 export const scanDemoAmmTransitionAudits = async (): Promise<readonly DemoAmmTransitionAuditProof[]> => {
   const [pools, trades] = await Promise.all([scanDemoAmmPools(), scanDemoAmmTrades()]);
   const blockCount = await rpc.call<number>("getblockcount");
-  const transactionInputs = new Map<string, Set<string>>();
+  const transactionInputs = new Map<string, readonly { readonly outpoint: string; readonly scriptSigHex: string }[]>();
 
   for (let height = 1; height <= blockCount; height += 1) {
     const block = await getBlockByHeight(height);
     for (const tx of block.tx) {
       transactionInputs.set(
         tx.txid,
-        new Set(
-          tx.vin.flatMap((input) =>
-            input.txid === undefined || input.vout === undefined ? [] : [`${input.txid}:${input.vout}`]
-          )
+        tx.vin.flatMap((input) =>
+          input.txid === undefined || input.vout === undefined
+            ? []
+            : [{ outpoint: `${input.txid}:${input.vout}`, scriptSigHex: input.scriptSig?.hex ?? "" }]
         )
       );
     }
@@ -346,15 +347,35 @@ export const scanDemoAmmTransitionAudits = async (): Promise<readonly DemoAmmTra
       .at(-1);
     if (previousPool === undefined) continue;
 
-    const poolSpendConfirmed = transactionInputs.get(trade.txid)?.has(`${previousPool.txid}:${previousPool.vout}`) ?? false;
+    const poolInput = transactionInputs
+      .get(trade.txid)
+      ?.find((input) => input.outpoint === `${previousPool.txid}:${previousPool.vout}`);
+    const poolSpendConfirmed = poolInput !== undefined;
+    const transitionAudit = auditDemoAmmTradeTransition({
+      nextPool,
+      poolSpendConfirmed,
+      previousPool,
+      trade
+    });
+
+    const cashVmSpend =
+      poolInput === undefined
+        ? undefined
+        : auditDemoP2shSpend({
+            expectedScriptPubKey: previousPool.scriptPubKey,
+            scriptSigHex: poolInput.scriptSigHex
+          });
+    const problems = [
+      ...transitionAudit.problems,
+      ...(cashVmSpend?.problems.map((problem) => `CashVM spend: ${problem}`) ?? [])
+    ];
+
     audits.push({
-      ...auditDemoAmmTradeTransition({
-        nextPool,
-        poolSpendConfirmed,
-        previousPool,
-        trade
-      }),
-      height: trade.height
+      ...transitionAudit,
+      ...(cashVmSpend === undefined ? {} : { cashVmSpend }),
+      height: trade.height,
+      problems,
+      status: problems.length === 0 ? "verified" : "failed"
     });
   }
 

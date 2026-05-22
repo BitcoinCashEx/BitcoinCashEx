@@ -23,6 +23,14 @@ const json = (response: http.ServerResponse, status: number, payload: unknown): 
   response.end(JSON.stringify(payload, (_, value: unknown) => (typeof value === "bigint" ? value.toString() : value), 2));
 };
 
+const escapeHtml = (value: unknown): string =>
+  String(value)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
+
 const parseBody = async (request: http.IncomingMessage): Promise<Record<string, unknown>> =>
   new Promise((resolve, reject) => {
     const chunks: Buffer[] = [];
@@ -164,12 +172,17 @@ const renderPage = (): string => `<!doctype html>
         if (key === 'token-to-bch' || key === 'sell') return 'Token to BCH';
         return value;
       };
+      const cashVmSpendStatus = (audit) => {
+        if (!audit.cashVmSpend) return '<span class="bad">missing</span>';
+        return '<span class="' + (audit.cashVmSpend.status === 'verified' ? 'ok' : 'bad') + '">' + audit.cashVmSpend.status + '</span>';
+      };
       const refresh = async () => {
         const response = await fetch('/api/state');
         const data = await response.json();
         const launch = data.launch;
         const activePool = data.pools.filter((pool) => pool.active).at(-1);
         const auditFailures = data.transitionAudits.filter((audit) => audit.status !== 'verified').length;
+        const cashVmSpendFailures = data.transitionAudits.filter((audit) => !audit.cashVmSpend || audit.cashVmSpend.status !== 'verified').length;
         const pack = data.proofPack;
         metrics.innerHTML = [
           metric('Height', data.blockCount),
@@ -182,7 +195,8 @@ const renderPage = (): string => `<!doctype html>
           metric('Fees sats', launch ? launch.feesCollectedBchSats : '0'),
           metric('Pool BCH sats', activePool ? activePool.valueSats : 'not created'),
           metric('Pool tokens', activePool ? activePool.tokenData.amount : 'not created'),
-          metric('AMM audit', data.transitionAudits.length === 0 ? 'no swaps' : auditFailures === 0 ? 'verified' : auditFailures + ' failed')
+          metric('AMM audit', data.transitionAudits.length === 0 ? 'no swaps' : auditFailures === 0 ? 'verified' : auditFailures + ' failed'),
+          metric('CashVM AMM spend', data.transitionAudits.length === 0 ? 'no swaps' : cashVmSpendFailures === 0 ? 'verified' : cashVmSpendFailures + ' failed')
         ].join('');
         proofPackView.innerHTML = pack.status === 'missing'
           ? '<p>No complete proof pack found yet.</p>'
@@ -195,8 +209,8 @@ const renderPage = (): string => `<!doctype html>
             '</tbody></table>';
         audits.innerHTML = data.transitionAudits.length === 0
           ? '<p>No AMM reserve audits found yet.</p>'
-          : '<table><thead><tr><th>Height</th><th>Status</th><th>Side</th><th>Expected BCH</th><th>Actual BCH</th><th>Expected Tokens</th><th>Actual Tokens</th><th>Spent Pool</th><th>Tx</th></tr></thead><tbody>' +
-            data.transitionAudits.map((audit) => '<tr><td>' + audit.height + '</td><td><span class="' + (audit.status === 'verified' ? 'ok' : 'bad') + '">' + audit.status + '</span></td><td>' + sideName(audit.side) + '</td><td>' + amount(audit.expectedBchReserveSats) + '</td><td>' + amount(audit.actualBchReserveSats) + '</td><td>' + amount(audit.expectedTokenReserve) + '</td><td>' + amount(audit.actualTokenReserve) + '</td><td>' + audit.poolSpendConfirmed + '</td><td>' + txLink(audit.txid) + '</td></tr>').join('') +
+          : '<table><thead><tr><th>Height</th><th>Status</th><th>CashVM Spend</th><th>Side</th><th>Expected BCH</th><th>Actual BCH</th><th>Expected Tokens</th><th>Actual Tokens</th><th>Spent Pool</th><th>Tx</th></tr></thead><tbody>' +
+            data.transitionAudits.map((audit) => '<tr><td>' + audit.height + '</td><td><span class="' + (audit.status === 'verified' ? 'ok' : 'bad') + '">' + audit.status + '</span></td><td>' + cashVmSpendStatus(audit) + '</td><td>' + sideName(audit.side) + '</td><td>' + amount(audit.expectedBchReserveSats) + '</td><td>' + amount(audit.actualBchReserveSats) + '</td><td>' + amount(audit.expectedTokenReserve) + '</td><td>' + amount(audit.actualTokenReserve) + '</td><td>' + audit.poolSpendConfirmed + '</td><td>' + txLink(audit.txid) + '</td></tr>').join('') +
             '</tbody></table>';
         const tokenProofs = data.tokenProofs.length === 0
           ? '<p>No real CashToken outputs found yet.</p>'
@@ -237,6 +251,77 @@ const renderPage = (): string => `<!doctype html>
   </body>
 </html>`;
 
+const renderTxPage = (txid: string, decoded: Awaited<ReturnType<typeof getDecodedTransaction>>): string => {
+  const trade = decoded.ammTrade;
+  const audit = decoded.ammTransitionAudit;
+  const cashVmSpend = audit?.cashVmSpend;
+  const jsonText = JSON.stringify(decoded, null, 2);
+  const statusClass = audit?.status === "verified" ? "ok" : "bad";
+  const cashVmClass = cashVmSpend?.status === "verified" ? "ok" : "bad";
+
+  return `<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Tx ${escapeHtml(txid)}</title>
+    <style>
+      :root { color-scheme: light; font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+      body { margin: 0; background: #f7f7f4; color: #1e2420; }
+      header { padding: 20px clamp(16px, 4vw, 44px); background: #0f2f24; color: white; }
+      main { padding: 20px clamp(16px, 4vw, 44px); display: grid; gap: 16px; }
+      a { color: #0f6846; font-weight: 700; }
+      header a { color: white; }
+      h1 { margin: 10px 0 0; font-size: clamp(22px, 3vw, 34px); letter-spacing: 0; overflow-wrap: anywhere; }
+      h2 { margin: 0 0 12px; font-size: 18px; letter-spacing: 0; }
+      section { background: white; border: 1px solid #d8ddd5; border-radius: 8px; padding: 18px; }
+      .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
+      .metric { border: 1px solid #e0e4dc; border-radius: 6px; padding: 12px; background: #fbfcfa; min-height: 72px; }
+      .label { display: block; color: #59655d; font-size: 12px; text-transform: uppercase; letter-spacing: .04em; }
+      .value { display: block; margin-top: 6px; font-size: 16px; font-weight: 700; overflow-wrap: anywhere; }
+      code, pre { background: #eef1eb; border-radius: 4px; }
+      code { padding: 2px 4px; }
+      pre { padding: 14px; overflow: auto; max-height: 720px; }
+      .ok { color: #176f4d; font-weight: 700; }
+      .bad { color: #9f1d1d; font-weight: 700; }
+    </style>
+  </head>
+  <body>
+    <header>
+      <a href="/">Back to Launchpad</a>
+      <h1>Local Tx ${escapeHtml(txid)}</h1>
+    </header>
+    <main>
+      <section>
+        <h2>AMM / CashVM Proof</h2>
+        ${
+          trade === undefined || audit === undefined
+            ? "<p>No decoded AMM swap proof was found for this transaction.</p>"
+            : `<div class="grid">
+                <div class="metric"><span class="label">Trade side</span><span class="value">${escapeHtml(trade.side)}</span></div>
+                <div class="metric"><span class="label">Audit status</span><span class="value ${statusClass}">${escapeHtml(audit.status)}</span></div>
+                <div class="metric"><span class="label">CashVM spend</span><span class="value ${cashVmClass}">${escapeHtml(cashVmSpend?.status ?? "missing")}</span></div>
+                <div class="metric"><span class="label">Spent pool</span><span class="value">${escapeHtml(audit.poolSpendConfirmed)}</span></div>
+                <div class="metric"><span class="label">Expected BCH</span><span class="value">${escapeHtml(audit.expectedBchReserveSats)}</span></div>
+                <div class="metric"><span class="label">Actual BCH</span><span class="value">${escapeHtml(audit.actualBchReserveSats)}</span></div>
+                <div class="metric"><span class="label">Expected tokens</span><span class="value">${escapeHtml(audit.expectedTokenReserve)}</span></div>
+                <div class="metric"><span class="label">Actual tokens</span><span class="value">${escapeHtml(audit.actualTokenReserve)}</span></div>
+                <div class="metric"><span class="label">Redeem script</span><span class="value"><code>${escapeHtml(cashVmSpend?.redeemScript ?? "")}</code></span></div>
+                <div class="metric"><span class="label">P2SH script</span><span class="value"><code>${escapeHtml(cashVmSpend?.expectedScriptPubKey ?? "")}</code></span></div>
+              </div>`
+        }
+      </section>
+      <section>
+        <details>
+          <summary><strong>Raw BCHN Transaction Decode</strong></summary>
+          <pre>${escapeHtml(jsonText)}</pre>
+        </details>
+      </section>
+    </main>
+  </body>
+</html>`;
+};
+
 const serializeSnapshot = async () => {
   const snapshot = await getDemoSnapshot();
   return {
@@ -266,6 +351,7 @@ const serializeSnapshot = async () => {
     transitionAudits: snapshot.transitionAudits.map((audit) => ({
       actualBchReserveSats: audit.actualBchReserveSats,
       actualTokenReserve: audit.actualTokenReserve,
+      cashVmSpend: audit.cashVmSpend,
       category: audit.category,
       constantProductAfter: audit.constantProductAfter,
       constantProductBefore: audit.constantProductBefore,
@@ -404,7 +490,7 @@ const server = http.createServer(async (request, response) => {
     if (request.method === "GET" && txMatch?.[1] !== undefined) {
       const decoded = await getDecodedTransaction(txMatch[1]);
       response.writeHead(200, { "content-type": "text/html; charset=utf-8" });
-      response.end(`<!doctype html><title>Tx ${txMatch[1]}</title><body style="font-family: ui-monospace, monospace; padding: 24px;"><p><a href="/">Back</a></p><h1>Local Tx ${txMatch[1]}</h1><pre>${JSON.stringify(decoded, null, 2)}</pre></body>`);
+      response.end(renderTxPage(txMatch[1], decoded));
       return;
     }
 

@@ -81,27 +81,32 @@ The local demo now proves the first on-chain AMM path on BCHN regtest:
   next CashVM pool UTXO, confirms the swap spends the previous pool outpoint,
   verifies BCH/token reserve deltas, and checks that the constant-product
   invariant does not decrease.
+- Each AMM transition audit also extracts the final redeem-script push from the
+  pool input script, hashes it as P2SH, and verifies it matches the previous
+  CashVM pool locking script. The mined transaction proves BCHN accepted that
+  CashVM spend.
 - `/api/proof-pack` runs a full backend-owned AMM proof: it ensures a CashVM
   pool exists, mines a BCH-to-token swap, mines a token-to-BCH swap, then
   returns only after `/api/state.proofPack` verifies the latest swap pair from
   chain-derived audit rows.
-- `/tx/<swap-txid>` includes `ammTrade` and `ammTransitionAudit`, making each
-  local explorer link a self-contained proof for that swap transaction.
+- `/tx/<swap-txid>` includes `ammTrade` and `ammTransitionAudit.cashVmSpend`,
+  making each local explorer link a self-contained proof for that swap
+  transaction.
 
 Current local proof values:
 
 - Initial pool transaction:
   `6d21a365013c10636de2f32635ab4a087f4d0788e695b9768e1192bf750fcff8`.
 - Latest marker-backed BCH-to-token swap:
-  `2f0c1fa6f5a3647cca8346af5e96edcf3235931ca4a5fa4570aec4333a8beb01` at
-  height `133`.
+  `e8a6863e5bcd43dd7dd3007f8d3dc0b15fec3271da3c7c5d72c19ab06e9f3ec4` at
+  height `137`.
 - Latest marker-backed token-to-BCH swap:
-  `10d8ceb0855008eee7e2079cb2f83b0845d90ee0e57e42f466a4f0ba825aa0f0` at
-  height `134`.
-- Active pool reserves after the latest reverse swap: `5003606840` sats and `899355`
+  `d9fcf796474073413d685531d969118faede57bb87eec01724f0243bf0ebfcfe` at
+  height `138`.
+- Active pool reserves after the latest reverse swap: `5005050214` sats and `899097`
   CashTokens.
 - Backend user payout after the BCH-to-token swap: `179` CashTokens.
-- Backend user payout after the token-to-BCH swap: `276192` sats, with `129`
+- Backend user payout after the token-to-BCH swap: `276353` sats, with `129`
   CashTokens returned as change.
 - Operator-gated CashVM proof spend:
   `e226c354e2dffefebd85762d64f34a453683489e8407800fe59e8411f65cd3b1`.
@@ -141,17 +146,19 @@ covenant that enforces the AMM reserve transition inside CashVM.
   input/output amounts, block height, token category, and local `/tx/<txid>`
   explorer links.
 - The UI renders an `AMM Reserve Audit` table with expected versus actual pool
-  reserves, prior-pool spend confirmation, and per-swap verification status.
+  reserves, prior-pool spend confirmation, CashVM spend status, and per-swap
+  verification status.
 - The UI has a `Run Full AMM Proof` button and a `Latest Proof Pack` receipt
   with the latest verified BCH-to-token and token-to-BCH explorer links.
 - `/tx/<txid>` acts as a local transaction explorer for the mined transaction;
-  AMM swap pages include decoded trade marker and reserve audit data.
+  AMM swap pages include a compact AMM/CashVM proof summary, decoded trade
+  marker, reserve audit data, and CashVM P2SH spend audit data.
 
 This proves backend-controlled local-chain execution, real CashToken genesis,
 operator-gated CashVM contract spends, CashVM-held AMM pool UTXOs, backend
 swaps in both AMM directions, decoded trade history, audited pool transitions,
-and chain-derived UI state. It still does not prove a production CashVM covenant
-enforcing AMM reserve math.
+audited CashVM pool spends, and chain-derived UI state. It still does not prove
+a production CashVM covenant enforcing AMM reserve math.
 
 ## Current Validation
 
@@ -168,7 +175,7 @@ npm run node:health
 Current local result:
 
 - 14 test files.
-- 56 unit tests.
+- 58 unit tests.
 - TypeScript strict mode passes.
 - Build passes.
 - npm audit reports 0 vulnerabilities.
