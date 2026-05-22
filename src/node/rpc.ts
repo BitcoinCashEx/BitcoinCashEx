@@ -1,7 +1,12 @@
 import type { AppConfig } from "../config.js";
 
 export type BchnRpcMethod =
+  | "createrawtransaction"
+  | "generatetoaddress"
+  | "getblock"
   | "getblockchaininfo"
+  | "getblockcount"
+  | "getblockhash"
   | "getindexinfo"
   | "getmempoolinfo"
   | "getnetworkinfo"
@@ -10,6 +15,7 @@ export type BchnRpcMethod =
   | "gettxout"
   | "getzmqnotifications"
   | "sendrawtransaction"
+  | "signrawtransactionwithkey"
   | "testmempoolaccept";
 
 export interface JsonRpcResponse<T> {
@@ -84,4 +90,3 @@ export class BchnRpcClient {
     }
   }
 }
-

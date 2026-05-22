@@ -100,3 +100,12 @@ The on-chain proof plan is tracked in
 [regtest-token-proof.md](regtest-token-proof.md). The current codebase has a
 deterministic launch regression; it does not yet mine a real CashToken launch on
 BCHN regtest.
+
+There is now also a local event-backed proof UI:
+
+- Run `npm run demo`.
+- Open `http://127.0.0.1:3000`.
+- Click create, buy, sell, and graduate.
+- The backend submits and mines BCHN regtest transactions for each action.
+- The page reconstructs state from mined OP_RETURN event transactions and links
+  to local `/tx/<txid>` transaction views.

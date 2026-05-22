@@ -37,6 +37,16 @@ npm run node:up
 npm run node:health
 ```
 
+Start the local launchpad proof UI:
+
+```sh
+npm run demo
+```
+
+Open `http://127.0.0.1:3000`. The backend uses a predefined regtest key,
+submits BCHN transactions itself, mines each action, and links each event to a
+local transaction view under `/tx/<txid>`.
+
 Stop it when finished:
 
 ```sh
@@ -68,3 +78,5 @@ The missing on-chain CashToken regression path is tracked in
   virtual-reserve buy/sell quote math.
 - [src/defi/launchpad.ts](src/defi/launchpad.ts): deterministic launch
   lifecycle state machine.
+- [src/demo](src/demo): local browser demo backed by BCHN regtest
+  transactions.

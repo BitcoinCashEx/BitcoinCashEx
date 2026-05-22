@@ -52,6 +52,21 @@ transactions, spends launch covenant UTXOs, and mines the lifecycle on BCHN.
 - Raw transaction broadcasting flows through `testmempoolaccept` first.
 - Rejected raw transactions are not broadcast.
 
+## Local Proof UI
+
+- `npm run demo` starts a local browser UI on `http://127.0.0.1:3000`.
+- The backend owns a predefined regtest key and submits transactions directly to
+  BCHN.
+- Each launch action is encoded as a compact OP_RETURN event transaction.
+- Each submitted action is mined into a block.
+- `/api/state` scans BCHN blocks and reconstructs launch state from chain
+  events.
+- `/tx/<txid>` acts as a local transaction explorer for the mined event.
+
+This proves backend-controlled local-chain execution and chain-derived UI state.
+It still does not prove a production CashVM covenant holding real CashToken
+reserves.
+
 ## Current Validation
 
 Run:
@@ -66,8 +81,8 @@ npm run node:health
 
 Current local result:
 
-- 9 test files.
-- 26 unit tests.
+- 10 test files.
+- 29 unit tests.
 - TypeScript strict mode passes.
 - Build passes.
 - npm audit reports 0 vulnerabilities.

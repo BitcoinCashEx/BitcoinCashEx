@@ -4,6 +4,11 @@ The current launchpad regression proves deterministic launch accounting, not a
 mined on-chain CashToken lifecycle. The next proof must create and spend real
 CashToken UTXOs on regtest.
 
+The repository now includes an intermediate local proof UI that submits and
+mines backend-controlled BCHN regtest event transactions. That UI proves
+chain-derived state and backend transaction submission, but not CashToken
+covenant custody.
+
 ## Practical Stack
 
 - `mainnet-js@4.0.0-next.13` for wallet funding, CashToken genesis, token sends,
