@@ -377,6 +377,14 @@ export const buildDemoAmmProofPackReceipt = (
   };
 };
 
+export const findDemoAmmTransitionAuditByTxid = <Audit extends { readonly txid: string }>(
+  audits: readonly Audit[],
+  txid: string
+): Audit | undefined => {
+  const normalizedTxid = txid.toLowerCase();
+  return audits.find((audit) => audit.txid.toLowerCase() === normalizedTxid);
+};
+
 export const selectDemoAmmSwapFundingUtxo = <Utxo extends { readonly amountSats: bigint }>(
   utxos: readonly Utxo[],
   bchAmountInSats: bigint

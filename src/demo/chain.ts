@@ -9,6 +9,7 @@ import {
   demoAmmWalletChangeDustSats,
   encodeDemoAmmPoolMarkerText,
   encodeDemoAmmTradeMarkerText,
+  findDemoAmmTransitionAuditByTxid,
   parseDemoAmmPoolMarkerScript,
   parseDemoAmmTradeMarkerScript,
   quoteDemoAmmBuy,
@@ -972,5 +973,8 @@ export const getDecodedTransaction = async (txid: string) => {
     .map((output) => parseDemoAmmPoolMarkerScript(output.scriptPubKey.hex))
     .find((entry) => entry !== undefined);
 
-  return { ammPoolCategory, ammTrade, cashVmProof, event, eventText: text, tx };
+  const ammTransitionAudit =
+    ammTrade === undefined ? undefined : findDemoAmmTransitionAuditByTxid(await scanDemoAmmTransitionAudits(), txid);
+
+  return { ammPoolCategory, ammTrade, ammTransitionAudit, cashVmProof, event, eventText: text, tx };
 };

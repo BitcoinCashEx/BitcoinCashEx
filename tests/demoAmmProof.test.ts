@@ -5,6 +5,7 @@ import {
   demoAmmPoolMarkerPrefix,
   encodeDemoAmmPoolMarkerText,
   encodeDemoAmmTradeMarkerText,
+  findDemoAmmTransitionAuditByTxid,
   parseDemoAmmPoolMarkerText,
   parseDemoAmmPoolMarkerScript,
   parseDemoAmmTradeMarkerScript,
@@ -316,5 +317,12 @@ describe("demo AMM pool proof helpers", () => {
       problems: ["No complete BCH-to-token then token-to-BCH AMM proof pair was found."],
       status: "missing"
     });
+  });
+
+  it("finds a transition audit for a local explorer transaction link", () => {
+    const audit = { status: "verified", txid: "aa".repeat(32) };
+
+    expect(findDemoAmmTransitionAuditByTxid([audit], "AA".repeat(32))).toBe(audit);
+    expect(findDemoAmmTransitionAuditByTxid([audit], "bb".repeat(32))).toBeUndefined();
   });
 });

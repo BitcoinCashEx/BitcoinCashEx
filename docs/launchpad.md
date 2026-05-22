@@ -142,3 +142,5 @@ There is now also a local event-backed proof UI:
   `Latest Proof Pack`, `AMM Trades`, and `AMM Reserve Audit` tables from
   `/api/state`, and links trade, event, token, and contract rows to local
   `/tx/<txid>` transaction views.
+- AMM swap transaction views include the decoded trade marker and matching
+  reserve-transition audit, so the proof-pack links can be opened directly.

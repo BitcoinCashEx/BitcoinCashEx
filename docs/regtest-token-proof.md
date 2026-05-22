@@ -76,6 +76,9 @@ The current implementation uses BCHN RPC directly, without Fulcrum:
 - `/api/proof-pack` is the one-click path: the backend mines a fresh
   BCH-to-token swap and a fresh token-to-BCH swap, then returns the latest
   verified proof receipt and local explorer links.
+- `/tx/<swap-txid>` returns decoded `ammTrade` and `ammTransitionAudit` fields,
+  so the explorer link itself shows marker data, expected reserves, actual
+  reserves, previous pool spend confirmation, and verification status.
 
 The current CashVM script gates custody by backend signature. The next hardening
 milestone is a covenant template that validates token category continuity,
