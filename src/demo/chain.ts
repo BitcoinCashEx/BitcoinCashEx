@@ -13,8 +13,9 @@ import {
   summarizeDemoAmmPool,
   type DemoAmmPoolUtxo
 } from "./ammProof.js";
-import { encodeCashVmProofText, parseCashVmProofScript } from "./cashVmProof.js";
+import { encodeCashVmProofText, extractFinalPushDataHex, parseCashVmProofScript } from "./cashVmProof.js";
 import { eventHexToText, eventTextToHex, parseOpReturnEvent, replayDemoEvents, type DemoChainEvent, type DemoEventInput } from "./events.js";
+import { createDemoOperatorP2shContract, deriveDemoP2shContract } from "./operatorContract.js";
 import { summarizeDemoTokenData, type DemoTokenData } from "./tokenProof.js";
 
 export const demoPrivateKeyHex = "0000000000000000000000000000000000000000000000000000000000000001";
@@ -35,13 +36,20 @@ export const demoAddress = addressResult.address;
 export const demoScriptPubKey = Buffer.from(lockingBytecodeResult).toString("hex");
 export const demoUserPrivateKeyWif = "cMahea7zqjxrtgAbB7LSGbcQUr1uX1ojuat9jZodMN87K7XCyj5v";
 export const demoUserAddress = "bchreg:qqr2l4rteh7j9mu54sfz4gglysfyfgm7esz8wrfywu";
-export const demoCashVmRedeemScript = "51";
-export const demoCashVmScriptPubKey = "a914da1745e9b549bd0bfa1a569971c77eba30cd5a4b87";
-export const demoCashVmAddress = "bchreg:prdpw30fk4ym6zl6rftfjuw806arpn26fveknc0qmt";
+const operatorContract = createDemoOperatorP2shContract(privateKey);
+export const demoCashVmRedeemScript = operatorContract.redeemScript;
+export const demoCashVmScriptPubKey = operatorContract.scriptPubKey;
+export const demoCashVmAddress = operatorContract.address;
 
 interface BlockTx {
   readonly txid: string;
-  readonly vin: readonly { readonly coinbase?: string }[];
+  readonly vin: readonly {
+    readonly coinbase?: string;
+    readonly scriptSig?: {
+      readonly hex: string;
+    };
+    readonly txid?: string;
+  }[];
   readonly vout: readonly {
     readonly n: number;
     readonly scriptPubKey: {
@@ -130,6 +138,12 @@ const satsToBch = (sats: bigint): string => {
 };
 
 const bchToSats = (value: number): bigint => BigInt(Math.round(value * 100_000_000));
+const dustLimitSats = 546n;
+
+const selectSpendableUtxo = (
+  utxos: readonly SpendableUtxo[],
+  minimumSats: bigint
+): SpendableUtxo | undefined => utxos.find((utxo) => utxo.amountSats >= minimumSats);
 
 const getBlockByHeight = async (height: number): Promise<BlockVerbose> => {
   const hash = await rpc.call<string>("getblockhash", [height]);
@@ -265,11 +279,13 @@ export const scanDemoCashVmProofs = async (): Promise<readonly DemoCashVmProof[]
       for (const output of tx.vout) {
         const proof = parseCashVmProofScript(output.scriptPubKey.hex);
         if (proof !== undefined) {
+          const spendInput = tx.vin.find((input) => input.txid === proof.contractTxid);
+          const redeemScript = extractFinalPushDataHex(spendInput?.scriptSig?.hex ?? "") ?? demoCashVmRedeemScript;
           proofs.push({
-            contractScriptPubKey: demoCashVmScriptPubKey,
+            contractScriptPubKey: deriveDemoP2shContract(redeemScript).scriptPubKey,
             contractTxid: proof.contractTxid,
             height,
-            redeemScript: demoCashVmRedeemScript,
+            redeemScript,
             spendTxid: tx.txid
           });
         }
@@ -384,7 +400,7 @@ export const createDemoAmmPool = async (): Promise<DemoAmmPoolUtxo> => {
 
   const feeSats = 1_000n;
   const poolValueSats = tokenUtxo.amountSats - feeSats;
-  if (poolValueSats <= 546n) {
+  if (poolValueSats <= dustLimitSats) {
     throw new Error("Token UTXO BCH value is too small to seed an AMM pool.");
   }
 
@@ -500,15 +516,15 @@ export const swapDemoAmmPool = async (
 
 export const createDemoCashVmProof = async (): Promise<DemoCashVmProof> => {
   await ensureDemoFunding();
-  const [fundingUtxo] = await findSpendableUtxos();
-  if (fundingUtxo === undefined) {
-    throw new Error("No spendable demo UTXO is available for CashVM proof.");
-  }
-
   const contractValueSats = 2_000n;
   const feeSats = 1_000n;
+  const fundingUtxo = selectSpendableUtxo(await findSpendableUtxos(), contractValueSats + feeSats + dustLimitSats + 1n);
+  if (fundingUtxo === undefined) {
+    throw new Error("No sufficiently large spendable demo UTXO is available for CashVM proof.");
+  }
+
   const changeSats = fundingUtxo.amountSats - contractValueSats - feeSats;
-  if (changeSats <= 546n) {
+  if (changeSats <= dustLimitSats) {
     throw new Error("Demo UTXO is too small for CashVM proof funding.");
   }
 
@@ -544,14 +560,14 @@ export const createDemoCashVmProof = async (): Promise<DemoCashVmProof> => {
 
 export const submitDemoEvent = async (event: DemoEventInput): Promise<string> => {
   await ensureDemoFunding();
-  const [utxo] = await findSpendableUtxos();
+  const feeSats = 1_000n;
+  const utxo = selectSpendableUtxo(await findSpendableUtxos(), feeSats + dustLimitSats + 1n);
   if (utxo === undefined) {
-    throw new Error("No spendable demo UTXO is available after funding.");
+    throw new Error("No sufficiently large spendable demo UTXO is available after funding.");
   }
 
-  const feeSats = 1_000n;
   const changeSats = utxo.amountSats - feeSats;
-  if (changeSats <= 546n) {
+  if (changeSats <= dustLimitSats) {
     throw new Error("Demo UTXO is too small to submit an event transaction.");
   }
 

@@ -37,3 +37,35 @@ export const parseCashVmProofScript = (scriptHex: string): DemoCashVmProofEvent 
   return decodeCashVmProofText(bytes.subarray(offset, offset + length).toString("utf8"));
 };
 
+export const extractFinalPushDataHex = (scriptHex: string): string | undefined => {
+  const bytes = Buffer.from(scriptHex, "hex");
+  let offset = 0;
+  let finalPush: Buffer | undefined;
+
+  while (offset < bytes.length) {
+    const opcode = bytes[offset];
+    if (opcode === undefined) return undefined;
+    offset += 1;
+
+    if (opcode >= 0x01 && opcode <= 0x4b) {
+      if (bytes.length < offset + opcode) return undefined;
+      finalPush = bytes.subarray(offset, offset + opcode);
+      offset += opcode;
+      continue;
+    }
+
+    if (opcode === 0x4c) {
+      const length = bytes[offset];
+      if (length === undefined) return undefined;
+      offset += 1;
+      if (bytes.length < offset + length) return undefined;
+      finalPush = bytes.subarray(offset, offset + length);
+      offset += length;
+      continue;
+    }
+
+    return undefined;
+  }
+
+  return finalPush?.toString("hex");
+};

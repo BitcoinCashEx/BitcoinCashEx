@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   decodeCashVmProofText,
   encodeCashVmProofText,
+  extractFinalPushDataHex,
   parseCashVmProofScript
 } from "../src/demo/cashVmProof.js";
 import { parseOpReturnEvent } from "../src/demo/events.js";
@@ -27,5 +28,13 @@ describe("demo CashVM proof events", () => {
   it("rejects malformed contract txids", () => {
     expect(() => encodeCashVmProofText("aa")).toThrow("32-byte");
     expect(() => decodeCashVmProofText("BCHEX1|CASHVM|aa")).toThrow("32-byte");
+  });
+
+  it("extracts the redeem script from a P2SH scriptSig", () => {
+    const redeemScript = "76a914751e76e8199196d454941c45d1b3a323f1433bd688ac";
+    const scriptSig = `0151${(redeemScript.length / 2).toString(16).padStart(2, "0")}${redeemScript}`;
+
+    expect(extractFinalPushDataHex("0151")).toBe("51");
+    expect(extractFinalPushDataHex(scriptSig)).toBe(redeemScript);
   });
 });

@@ -12,9 +12,10 @@ BitcoinCashEx currently implements off-chain deterministic primitives:
   CashVM P2SH AMM pool UTXO, and submit a backend-controlled BCH to token swap.
 
 This is not a full Uniswap implementation yet. It is now a working local
-transaction proof for AMM pool custody and swap state transitions. The remaining
-production step is replacing the `OP_TRUE` P2SH proof script with a covenant
-that enforces the reserve transition inside CashVM.
+transaction proof for AMM pool custody and swap state transitions. The current
+P2SH proof script requires the backend operator signature; the remaining
+production step is replacing backend policy with a covenant that enforces the
+reserve transition inside CashVM.
 
 ## Pump.fun-Style Model On Bitcoin Cash
 
@@ -116,7 +117,7 @@ There is now also a local event-backed proof UI:
 - Click mint real CashToken to create a pre-genesis transaction, spend vout `0`,
   and mine a BCHN transaction with native `tokenData`.
 - Click run CashVM proof to fund a P2SH CashVM contract and spend it by
-  revealing the redeem script.
+  signing with the predefined backend operator key.
 - Click create AMM pool to move the real CashToken output into the CashVM P2SH
   pool UTXO.
 - Click swap BCH to token to spend the active pool, recreate it with updated

@@ -58,6 +58,9 @@ The local demo now proves the first on-chain AMM path on BCHN regtest:
   OP_RETURN marker, and scanner logic ignores token UTXOs without that marker.
 - AMM pool reserves are rejected if they carry an NFT authority; the current
   pool uses fungible-only CashTokens.
+- New CashVM pool and proof spends use a P2SH-wrapped P2PKH redeem script tied
+  to the backend operator key, so they require the backend signature instead of
+  being anyone-can-spend.
 - A swap transaction spends the active pool UTXO plus a backend BCH UTXO.
 - The transaction recreates the pool with increased BCH reserves and reduced
   token reserves.
@@ -69,17 +72,20 @@ The local demo now proves the first on-chain AMM path on BCHN regtest:
 Current local proof values:
 
 - Initial pool transaction:
-  `32ffbe069e5ada736cc6b4a48a1e7ef4e8d3e34fdd4667037e27592375ce4986`.
+  `6d21a365013c10636de2f32635ab4a087f4d0788e695b9768e1192bf750fcff8`.
 - Swap transaction:
-  `b6c7489c8ca93da084e132c2b70da72c0be1820b43f8b5942d3f3fdbf00edb46`.
+  `1ee2ae9cdc69c563f68d0007c2a93d8896b970b8a7324cebca0e0dea1cfa8a29`.
 - Active pool reserves after the swap: `5000997000` sats and `899821`
   CashTokens.
 - Backend user payout after the swap: `179` CashTokens.
+- Operator-gated CashVM proof spend:
+  `e226c354e2dffefebd85762d64f34a453683489e8407800fe59e8411f65cd3b1`.
+- Current redeem script:
+  `76a914751e76e8199196d454941c45d1b3a323f1433bd688ac`.
 
-The current CashVM script remains `51` (`OP_TRUE`). This is an on-chain UTXO,
-CashToken, transaction construction, signing, mempool, mining, and explorer
-proof. It is not yet a production covenant that enforces the reserve transition
-inside CashVM.
+This is an on-chain UTXO, CashToken, CashVM P2SH, transaction construction,
+signing, mempool, mining, and explorer proof. It is still not a production
+covenant that enforces the AMM reserve transition inside CashVM.
 
 ## Transaction Safety
 
@@ -96,10 +102,9 @@ inside CashVM.
 - Each launch action is encoded as a compact OP_RETURN event transaction.
 - Each submitted action is mined into a block.
 - The UI can also create a real CashToken output via BCHN raw transactions:
-  pre-genesis vout `0`, token genesis, `tokenData.amount`, and minting NFT.
-- The UI can fund and spend a simple CashVM P2SH contract. The current demo
-  redeem script is `51` (`OP_TRUE`), so the proof is VM execution and spend
-  plumbing, not a production covenant.
+  pre-genesis vout `0`, token genesis, and fungible-only `tokenData.amount`.
+- The UI can fund and spend a CashVM P2SH contract that requires the backend
+  operator key signature.
 - The UI can create a CashVM AMM pool UTXO and submit a backend-controlled BCH
   to CashToken swap against it.
 - `/api/state` scans BCHN blocks and reconstructs launch state from chain
@@ -107,9 +112,9 @@ inside CashVM.
 - `/tx/<txid>` acts as a local transaction explorer for the mined event.
 
 This proves backend-controlled local-chain execution, real CashToken genesis,
-simple CashVM contract spends, CashVM-held AMM pool UTXOs, backend swaps, and
-chain-derived UI state. It still does not prove a production CashVM covenant
-enforcing AMM reserve math.
+operator-gated CashVM contract spends, CashVM-held AMM pool UTXOs, backend
+swaps, and chain-derived UI state. It still does not prove a production CashVM
+covenant enforcing AMM reserve math.
 
 ## Current Validation
 
@@ -125,8 +130,8 @@ npm run node:health
 
 Current local result:
 
-- 13 test files.
-- 39 unit tests.
+- 14 test files.
+- 43 unit tests.
 - TypeScript strict mode passes.
 - Build passes.
 - npm audit reports 0 vulnerabilities.
