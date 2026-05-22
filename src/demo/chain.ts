@@ -3,6 +3,7 @@ import { loadConfig } from "../config.js";
 import { BchnRpcClient } from "../node/rpc.js";
 import {
   auditDemoAmmTradeTransition,
+  buildDemoAmmProofPackReceipt,
   demoAmmSwapFeeSats,
   demoAmmTokenOutputDustSats,
   demoAmmWalletChangeDustSats,
@@ -16,6 +17,7 @@ import {
   selectDemoAmmSellTokenUtxo,
   selectDemoAmmSwapFundingUtxo,
   summarizeDemoAmmPool,
+  type DemoAmmProofPackReceipt,
   type DemoAmmPoolUtxo,
   type DemoAmmTransitionAudit
 } from "./ammProof.js";
@@ -109,6 +111,7 @@ export interface DemoChainSnapshot {
   readonly blockCount: number;
   readonly events: readonly DemoChainEvent[];
   readonly pools: readonly DemoAmmPoolUtxo[];
+  readonly proofPack: DemoAmmProofPackReceipt;
   readonly replay: ReturnType<typeof replayDemoEvents>;
   readonly tokenProofs: readonly DemoTokenProof[];
   readonly transitionAudits: readonly DemoAmmTransitionAuditProof[];
@@ -148,6 +151,18 @@ export interface DemoCashVmProof {
   readonly height: number;
   readonly redeemScript: string;
   readonly spendTxid: string;
+}
+
+export interface DemoAmmProofPackRun {
+  readonly bchToTokenTxid: string;
+  readonly completedHeight: number;
+  readonly createdPool: boolean;
+  readonly poolTxid: string;
+  readonly proofPack: DemoAmmProofPackReceipt;
+  readonly startedHeight: number;
+  readonly tokenGenesisTxid?: string;
+  readonly tokenToBchTxid: string;
+  readonly transitionAudits: readonly DemoAmmTransitionAuditProof[];
 }
 
 const config = loadConfig();
@@ -443,6 +458,7 @@ export const getDemoSnapshot = async (): Promise<DemoChainSnapshot> => {
     blockCount,
     events,
     pools,
+    proofPack: buildDemoAmmProofPackReceipt(transitionAudits),
     replay: replayDemoEvents(events),
     tokenProofs,
     transitionAudits,
@@ -624,6 +640,46 @@ export const swapDemoAmmPool = async (
     nextPool,
     tokenAmountOut: quote.outputAmount.toString(),
     txid
+  };
+};
+
+export const runDemoAmmProofPack = async (): Promise<DemoAmmProofPackRun> => {
+  await ensureDemoFunding();
+  const startedHeight = await rpc.call<number>("getblockcount");
+  let pool = await activeAmmPool();
+  let tokenGenesisTxid: string | undefined;
+
+  if (pool === undefined) {
+    const token = await createDemoCashToken();
+    tokenGenesisTxid = token.tokenGenesisTxid;
+    pool = await createDemoAmmPool();
+  }
+
+  const bchToToken = await swapDemoAmmPool(1_000_000n);
+  const tokenToBch = await sellDemoAmmTokens(50n);
+  const snapshot = await getDemoSnapshot();
+  const transitionAudits = snapshot.transitionAudits.filter(
+    (audit) => audit.txid === bchToToken.txid || audit.txid === tokenToBch.txid
+  );
+
+  if (
+    snapshot.proofPack.status !== "verified" ||
+    snapshot.proofPack.bchToTokenTxid !== bchToToken.txid ||
+    snapshot.proofPack.tokenToBchTxid !== tokenToBch.txid
+  ) {
+    throw new Error("Fresh AMM proof pack did not verify after mining.");
+  }
+
+  return {
+    bchToTokenTxid: bchToToken.txid,
+    completedHeight: snapshot.blockCount,
+    createdPool: tokenGenesisTxid !== undefined,
+    poolTxid: pool.txid,
+    proofPack: snapshot.proofPack,
+    startedHeight,
+    ...(tokenGenesisTxid === undefined ? {} : { tokenGenesisTxid }),
+    tokenToBchTxid: tokenToBch.txid,
+    transitionAudits
   };
 };
 
@@ -908,5 +964,13 @@ export const getDecodedTransaction = async (txid: string) => {
     .map((output) => parseCashVmProofScript(output.scriptPubKey.hex))
     .find((entry) => entry !== undefined);
 
-  return { cashVmProof, event, eventText: text, tx };
+  const ammTrade = tx.vout
+    .map((output) => parseDemoAmmTradeMarkerScript(output.scriptPubKey.hex))
+    .find((entry) => entry !== undefined);
+
+  const ammPoolCategory = tx.vout
+    .map((output) => parseDemoAmmPoolMarkerScript(output.scriptPubKey.hex))
+    .find((entry) => entry !== undefined);
+
+  return { ammPoolCategory, ammTrade, cashVmProof, event, eventText: text, tx };
 };

@@ -81,21 +81,25 @@ The local demo now proves the first on-chain AMM path on BCHN regtest:
   next CashVM pool UTXO, confirms the swap spends the previous pool outpoint,
   verifies BCH/token reserve deltas, and checks that the constant-product
   invariant does not decrease.
+- `/api/proof-pack` runs a full backend-owned AMM proof: it ensures a CashVM
+  pool exists, mines a BCH-to-token swap, mines a token-to-BCH swap, then
+  returns only after `/api/state.proofPack` verifies the latest swap pair from
+  chain-derived audit rows.
 
 Current local proof values:
 
 - Initial pool transaction:
   `6d21a365013c10636de2f32635ab4a087f4d0788e695b9768e1192bf750fcff8`.
 - Latest marker-backed BCH-to-token swap:
-  `6124140d978b960ac0d129981ec47c4943f33c3f2719c3976fef8e450343948a` at
-  height `129`.
+  `65cb09e8428f3cda40bd1082544b741ab84ae79c16ab60a3c58f1541587d33f1` at
+  height `131`.
 - Latest marker-backed token-to-BCH swap:
-  `05ff685725c6e835a16b2344b0219f0b7633ad3e5ea76db55f51c93943b8eea9` at
-  height `130`.
-- Active pool reserves after the latest reverse swap: `5002163144` sats and `899613`
+  `1e15b3099bbd31f8710f00d8331774b32ebca780db31c1df718c68d78a95f5a2` at
+  height `132`.
+- Active pool reserves after the latest reverse swap: `5002885032` sats and `899484`
   CashTokens.
 - Backend user payout after the BCH-to-token swap: `179` CashTokens.
-- Backend user payout after the token-to-BCH swap: `276032` sats, with `129`
+- Backend user payout after the token-to-BCH swap: `276112` sats, with `129`
   CashTokens returned as change.
 - Operator-gated CashVM proof spend:
   `e226c354e2dffefebd85762d64f34a453683489e8407800fe59e8411f65cd3b1`.
@@ -136,6 +140,8 @@ covenant that enforces the AMM reserve transition inside CashVM.
   explorer links.
 - The UI renders an `AMM Reserve Audit` table with expected versus actual pool
   reserves, prior-pool spend confirmation, and per-swap verification status.
+- The UI has a `Run Full AMM Proof` button and a `Latest Proof Pack` receipt
+  with the latest verified BCH-to-token and token-to-BCH explorer links.
 - `/tx/<txid>` acts as a local transaction explorer for the mined transaction.
 
 This proves backend-controlled local-chain execution, real CashToken genesis,
@@ -159,7 +165,7 @@ npm run node:health
 Current local result:
 
 - 14 test files.
-- 52 unit tests.
+- 55 unit tests.
 - TypeScript strict mode passes.
 - Build passes.
 - npm audit reports 0 vulnerabilities.

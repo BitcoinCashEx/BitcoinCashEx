@@ -50,8 +50,9 @@ Open `http://127.0.0.1:3000`. The backend uses a predefined regtest key,
 submits BCHN transactions itself, mines each action, can mint a real CashToken
 output, can fund and spend a simple CashVM P2SH contract, can create and swap
 both directions against a CashVM-held AMM pool UTXO, renders decoded AMM trade
-history plus reserve-transition audit rows, and links each trade, event, token,
-and contract transaction to a local transaction view under `/tx/<txid>`.
+history plus reserve-transition audit rows, can run a one-click AMM proof pack,
+and links each trade, event, token, and contract transaction to a local
+transaction view under `/tx/<txid>`.
 
 Stop it when finished:
 

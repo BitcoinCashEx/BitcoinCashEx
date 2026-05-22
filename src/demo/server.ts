@@ -7,6 +7,7 @@ import {
   ensureDemoFunding,
   getDecodedTransaction,
   getDemoSnapshot,
+  runDemoAmmProofPack,
   sellDemoAmmTokens,
   swapDemoAmmPool,
   submitDemoEvent
@@ -96,6 +97,7 @@ const renderPage = (): string => `<!doctype html>
           <button id="token" class="secondary">Mint Real CashToken</button>
           <button id="cashvm" class="secondary">Run CashVM Proof</button>
           <button id="pool" class="secondary">Create AMM Pool</button>
+          <button id="proofPack">Run Full AMM Proof</button>
           <input id="swapAmount" value="1000000" aria-label="Swap BCH amount sats" />
           <button id="swap" class="secondary">Swap BCH To Token</button>
           <input id="ammSellAmount" value="50" aria-label="AMM sell token amount" />
@@ -114,6 +116,10 @@ const renderPage = (): string => `<!doctype html>
         <div class="grid" id="metrics"></div>
       </section>
       <section>
+        <h2>Latest Proof Pack</h2>
+        <div id="proofPackView"></div>
+      </section>
+      <section>
         <h2>AMM Trades</h2>
         <div id="trades"></div>
       </section>
@@ -129,6 +135,7 @@ const renderPage = (): string => `<!doctype html>
     <script>
       const status = document.getElementById('status');
       const metrics = document.getElementById('metrics');
+      const proofPackView = document.getElementById('proofPackView');
       const trades = document.getElementById('trades');
       const audits = document.getElementById('audits');
       const events = document.getElementById('events');
@@ -163,6 +170,7 @@ const renderPage = (): string => `<!doctype html>
         const launch = data.launch;
         const activePool = data.pools.filter((pool) => pool.active).at(-1);
         const auditFailures = data.transitionAudits.filter((audit) => audit.status !== 'verified').length;
+        const pack = data.proofPack;
         metrics.innerHTML = [
           metric('Height', data.blockCount),
           metric('Wallet', '<code>' + data.wallet.address + '</code>'),
@@ -176,6 +184,10 @@ const renderPage = (): string => `<!doctype html>
           metric('Pool tokens', activePool ? activePool.tokenData.amount : 'not created'),
           metric('AMM audit', data.transitionAudits.length === 0 ? 'no swaps' : auditFailures === 0 ? 'verified' : auditFailures + ' failed')
         ].join('');
+        proofPackView.innerHTML = pack.status === 'missing'
+          ? '<p>No complete proof pack found yet.</p>'
+          : '<table><thead><tr><th>Status</th><th>Heights</th><th>BCH To Token</th><th>Token To BCH</th><th>Audits</th></tr></thead><tbody><tr><td><span class="' + (pack.status === 'verified' ? 'ok' : 'bad') + '">' + pack.status + '</span></td><td>' + pack.startHeight + '-' + pack.endHeight + '</td><td>' + txLink(pack.bchToTokenTxid) + '</td><td>' + txLink(pack.tokenToBchTxid) + '</td><td>' + pack.auditTxids.map(txLink).join(' ') + '</td></tr></tbody></table>' +
+            (pack.problems.length === 0 ? '' : '<p class="error">' + pack.problems.join(' ') + '</p>');
         trades.innerHTML = data.trades.length === 0
           ? '<p>No decoded AMM trades found yet.</p>'
           : '<table><thead><tr><th>Height</th><th>Side</th><th>Category</th><th>Input Amount</th><th>Output Amount</th><th>Tx</th></tr></thead><tbody>' +
@@ -212,6 +224,7 @@ const renderPage = (): string => `<!doctype html>
       document.getElementById('token').onclick = () => post('/api/token').catch((error) => setStatus(error.message, true));
       document.getElementById('cashvm').onclick = () => post('/api/cashvm').catch((error) => setStatus(error.message, true));
       document.getElementById('pool').onclick = () => post('/api/pool').catch((error) => setStatus(error.message, true));
+      document.getElementById('proofPack').onclick = () => post('/api/proof-pack').catch((error) => setStatus(error.message, true));
       document.getElementById('swap').onclick = () => post('/api/swap', { bchAmountInSats: document.getElementById('swapAmount').value }).catch((error) => setStatus(error.message, true));
       document.getElementById('ammSell').onclick = () => post('/api/swap-token-to-bch', { tokenAmountIn: document.getElementById('ammSellAmount').value }).catch((error) => setStatus(error.message, true));
       document.getElementById('create').onclick = () => post('/api/create').catch((error) => setStatus(error.message, true));
@@ -248,6 +261,7 @@ const serializeSnapshot = async () => {
           status: snapshot.replay.launch.status
         },
     pools: snapshot.pools,
+    proofPack: snapshot.proofPack,
     tokenProofs: snapshot.tokenProofs,
     transitionAudits: snapshot.transitionAudits.map((audit) => ({
       actualBchReserveSats: audit.actualBchReserveSats,
@@ -317,6 +331,12 @@ const server = http.createServer(async (request, response) => {
     if (request.method === "POST" && url.pathname === "/api/pool") {
       const result = await createDemoAmmPool();
       json(response, 200, { txid: result.txid, pool: result });
+      return;
+    }
+
+    if (request.method === "POST" && url.pathname === "/api/proof-pack") {
+      const result = await runDemoAmmProofPack();
+      json(response, 200, { txid: result.tokenToBchTxid, ...result });
       return;
     }
 

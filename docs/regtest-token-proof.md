@@ -73,6 +73,9 @@ The current implementation uses BCHN RPC directly, without Fulcrum:
   CashVM pool UTXO, the decoded trade marker, and the recreated pool UTXO. It
   checks the previous pool outpoint is spent, expected reserves match actual
   reserves, and the constant-product invariant does not decrease.
+- `/api/proof-pack` is the one-click path: the backend mines a fresh
+  BCH-to-token swap and a fresh token-to-BCH swap, then returns the latest
+  verified proof receipt and local explorer links.
 
 The current CashVM script gates custody by backend signature. The next hardening
 milestone is a covenant template that validates token category continuity,

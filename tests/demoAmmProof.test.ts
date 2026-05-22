@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   auditDemoAmmTradeTransition,
+  buildDemoAmmProofPackReceipt,
   demoAmmPoolMarkerPrefix,
   encodeDemoAmmPoolMarkerText,
   encodeDemoAmmTradeMarkerText,
@@ -240,5 +241,80 @@ describe("demo AMM pool proof helpers", () => {
       "Swap transaction does not spend the previous pool UTXO.",
       "Next BCH reserve does not match the trade marker delta."
     ]);
+  });
+
+  it("builds a verified proof-pack receipt from a consecutive buy and sell audit pair", () => {
+    const category = "aa".repeat(32);
+
+    expect(
+      buildDemoAmmProofPackReceipt([
+        {
+          category,
+          height: 20,
+          previousPoolTxid: "00".repeat(32),
+          problems: [],
+          side: "BCH_TO_TOKEN",
+          status: "verified",
+          txid: "11".repeat(32)
+        },
+        {
+          category,
+          height: 21,
+          previousPoolTxid: "11".repeat(32),
+          problems: [],
+          side: "TOKEN_TO_BCH",
+          status: "verified",
+          txid: "22".repeat(32)
+        }
+      ])
+    ).toEqual({
+      auditTxids: ["11".repeat(32), "22".repeat(32)],
+      bchToTokenTxid: "11".repeat(32),
+      category,
+      endHeight: 21,
+      problems: [],
+      startHeight: 20,
+      status: "verified",
+      tokenToBchTxid: "22".repeat(32)
+    });
+  });
+
+  it("reports failed proof-pack receipts when either audit in the pair failed", () => {
+    const category = "aa".repeat(32);
+
+    expect(
+      buildDemoAmmProofPackReceipt([
+        {
+          category,
+          height: 20,
+          previousPoolTxid: "00".repeat(32),
+          problems: [],
+          side: "BCH_TO_TOKEN",
+          status: "verified",
+          txid: "11".repeat(32)
+        },
+        {
+          category,
+          height: 21,
+          previousPoolTxid: "11".repeat(32),
+          problems: ["Next BCH reserve does not match the trade marker delta."],
+          side: "TOKEN_TO_BCH",
+          status: "failed",
+          txid: "22".repeat(32)
+        }
+      ])
+    ).toMatchObject({
+      auditTxids: ["11".repeat(32), "22".repeat(32)],
+      problems: ["Next BCH reserve does not match the trade marker delta."],
+      status: "failed"
+    });
+  });
+
+  it("reports a missing proof-pack receipt without a complete swap pair", () => {
+    expect(buildDemoAmmProofPackReceipt([])).toEqual({
+      auditTxids: [],
+      problems: ["No complete BCH-to-token then token-to-BCH AMM proof pair was found."],
+      status: "missing"
+    });
   });
 });

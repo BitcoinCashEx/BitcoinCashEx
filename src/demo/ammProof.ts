@@ -58,6 +58,27 @@ export interface DemoAmmTransitionAudit {
   readonly txid: string;
 }
 
+export interface DemoAmmProofPackAuditInput {
+  readonly category: string;
+  readonly height: number;
+  readonly previousPoolTxid: string;
+  readonly problems: readonly string[];
+  readonly side: DemoAmmTradeSide;
+  readonly status: "failed" | "verified";
+  readonly txid: string;
+}
+
+export interface DemoAmmProofPackReceipt {
+  readonly auditTxids: readonly string[];
+  readonly bchToTokenTxid?: string;
+  readonly category?: string;
+  readonly endHeight?: number;
+  readonly problems: readonly string[];
+  readonly startHeight?: number;
+  readonly status: "failed" | "missing" | "verified";
+  readonly tokenToBchTxid?: string;
+}
+
 export const demoAmmSwapFeeSats = 2_000n;
 export const demoAmmTokenOutputDustSats = 1_000n;
 export const demoAmmWalletChangeDustSats = 546n;
@@ -313,6 +334,46 @@ export const auditDemoAmmTradeTransition = ({
     side: trade.side,
     status: problems.length === 0 ? "verified" : "failed",
     txid: trade.txid
+  };
+};
+
+export const buildDemoAmmProofPackReceipt = (
+  audits: readonly DemoAmmProofPackAuditInput[]
+): DemoAmmProofPackReceipt => {
+  const ordered = [...audits].sort((left, right) => left.height - right.height || left.txid.localeCompare(right.txid));
+
+  for (let index = ordered.length - 1; index >= 0; index -= 1) {
+    const sellAudit = ordered[index];
+    if (sellAudit === undefined || sellAudit.side !== "TOKEN_TO_BCH") continue;
+
+    const buyAudit = ordered
+      .slice(0, index)
+      .reverse()
+      .find(
+        (audit) =>
+          audit.side === "BCH_TO_TOKEN" &&
+          audit.category === sellAudit.category &&
+          sellAudit.previousPoolTxid === audit.txid
+      );
+    if (buyAudit === undefined) continue;
+
+    const problems = [...buyAudit.problems, ...sellAudit.problems];
+    return {
+      auditTxids: [buyAudit.txid, sellAudit.txid],
+      bchToTokenTxid: buyAudit.txid,
+      category: sellAudit.category,
+      endHeight: sellAudit.height,
+      problems,
+      startHeight: buyAudit.height,
+      status: buyAudit.status === "verified" && sellAudit.status === "verified" ? "verified" : "failed",
+      tokenToBchTxid: sellAudit.txid
+    };
+  }
+
+  return {
+    auditTxids: [],
+    problems: ["No complete BCH-to-token then token-to-BCH AMM proof pair was found."],
+    status: "missing"
   };
 };
 

@@ -89,6 +89,8 @@ Reasons to start here:
 - Add AMM reserve-transition audits that reconstruct each swap from previous
   and next CashVM pool UTXOs. Done in `src/demo/ammProof.ts`,
   `src/demo/chain.ts`, and `src/demo/server.ts`.
+- Add one-click AMM proof-pack runner and latest receipt selection. Done in
+  `src/demo/chain.ts`, `src/demo/server.ts`, and `tests/demoAmmProof.test.ts`.
 - Add transaction-builder data models for create, buy, sell, and graduate.
 - Add CashScript or libauth contract templates after the math has full property
   coverage.
@@ -133,7 +135,10 @@ There is now also a local event-backed proof UI:
 - Click swap token to BCH to spend the active pool and predefined user's
   CashToken UTXO, recreate the pool, and pay BCH plus token change back to that
   user address.
+- Click run full AMM proof to let the backend execute a fresh BCH-to-token swap
+  and token-to-BCH swap, then verify the latest proof pair from chain-derived
+  reserve audits.
 - The page reconstructs state from mined OP_RETURN event transactions, renders
-  `AMM Trades` and `AMM Reserve Audit` tables from `/api/state`, and links
-  trade, event, token, and contract rows to local `/tx/<txid>` transaction
-  views.
+  `Latest Proof Pack`, `AMM Trades`, and `AMM Reserve Audit` tables from
+  `/api/state`, and links trade, event, token, and contract rows to local
+  `/tx/<txid>` transaction views.
