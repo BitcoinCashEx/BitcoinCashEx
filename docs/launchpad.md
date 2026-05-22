@@ -8,9 +8,13 @@ BitcoinCashEx currently implements off-chain deterministic primitives:
 - BCH/CashToken asset metadata validation.
 - Slippage checks.
 - BCHN RPC readiness and raw-transaction safety checks.
+- A local BCHN regtest UI that can mint a real CashToken, move it into a
+  CashVM P2SH AMM pool UTXO, and submit a backend-controlled BCH to token swap.
 
-This is not a full Uniswap implementation yet. It is the tested math and node
-foundation needed before adding CashVM contracts and transaction builders.
+This is not a full Uniswap implementation yet. It is now a working local
+transaction proof for AMM pool custody and swap state transitions. The remaining
+production step is replacing the `OP_TRUE` P2SH proof script with a covenant
+that enforces the reserve transition inside CashVM.
 
 ## Pump.fun-Style Model On Bitcoin Cash
 
@@ -74,6 +78,8 @@ Reasons to start here:
 - Add graduation threshold calculations. Done in `src/defi/launchpad.ts`.
 - Add deterministic launch lifecycle regression. Done in
   `tests/launchpad.test.ts`.
+- Add BCHN-only CashToken mint, CashVM AMM pool, and backend swap proof. Done in
+  `src/demo/chain.ts`, `src/demo/ammProof.ts`, and `tests/demoAmmProof.test.ts`.
 - Add transaction-builder data models for create, buy, sell, and graduate.
 - Add CashScript or libauth contract templates after the math has full property
   coverage.
@@ -111,5 +117,9 @@ There is now also a local event-backed proof UI:
   and mine a BCHN transaction with native `tokenData`.
 - Click run CashVM proof to fund a P2SH CashVM contract and spend it by
   revealing the redeem script.
+- Click create AMM pool to move the real CashToken output into the CashVM P2SH
+  pool UTXO.
+- Click swap BCH to token to spend the active pool, recreate it with updated
+  reserves, and pay CashTokens to the predefined backend user address.
 - The page reconstructs state from mined OP_RETURN event transactions and links
   to local `/tx/<txid>` transaction views.

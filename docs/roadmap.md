@@ -19,9 +19,9 @@
 ## Phase 2: DeFi Primitives
 
 - [x] Implement integer-only AMM quote and swap math.
-- [ ] Add UTXO-backed pool state models.
+- [x] Add demo UTXO-backed pool state models.
 - [x] Add CashTokens-aware accounting types.
-- [ ] Add deterministic fee and dust handling.
+- [x] Add deterministic demo fee and dust handling.
 - Build transaction builders for deposit, swap, withdraw, and cancel flows.
 
 ## Phase 2.5: Launchpad And Bonding Curve
@@ -32,7 +32,8 @@
 - [x] Add deterministic create, buy, sell, and graduation state-machine tests.
 - [ ] Add buy, sell, and graduate transaction data models.
 - [ ] Add CashVM contract templates for curve state and migration.
-- [ ] Add regtest CashToken lifecycle tests.
+- [x] Add BCHN regtest CashToken mint, AMM pool, and swap proof.
+- [ ] Add covenant-enforced regtest CashToken lifecycle tests.
 
 ## Phase 3: Indexing And State
 

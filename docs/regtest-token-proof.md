@@ -8,9 +8,11 @@ The repository now includes an intermediate local proof UI that submits and
 mines backend-controlled BCHN regtest event transactions. It also creates a real
 CashToken output by mining a pre-genesis transaction and spending vout `0` in a
 token genesis transaction. It also funds and spends a simple P2SH CashVM
-contract. This proves backend transaction submission, chain-derived state,
-native BCHN `tokenData`, and basic CashVM spend plumbing, but not CashToken
-covenant custody.
+contract, moves the real CashToken output into a CashVM P2SH AMM pool UTXO, and
+executes a backend-submitted BCH to token swap by spending and recreating that
+pool. This proves backend transaction submission, chain-derived state, native
+BCHN `tokenData`, CashVM spend plumbing, and AMM pool UTXO updates, but not yet
+CashVM-enforced covenant custody.
 
 ## Practical Stack
 
@@ -40,14 +42,34 @@ The integration test should:
 7. Execute a sell transaction.
 8. Reach the graduation threshold.
 9. Move BCH plus remaining CashTokens into an AMM pool covenant.
-10. Mine blocks and verify all resulting UTXOs.
+10. Execute BCH-to-token and token-to-BCH AMM swaps.
+11. Mine blocks and verify all resulting UTXOs.
+
+## Current BCHN-Only Proof
+
+The current implementation uses BCHN RPC directly, without Fulcrum:
+
+- `/api/token` mines a real CashToken genesis output.
+- `/api/pool` spends that token output into the CashVM P2SH pool address.
+- AMM pool discovery requires a `BCHEXAMM1|<category>` OP_RETURN marker in the
+  pool transaction and rejects NFT-bearing token reserves.
+- `/api/swap` spends the active pool plus a backend BCH UTXO, recreates the
+  pool with updated reserves, and pays CashTokens to the predefined user
+  address.
+- `/api/state` scans mined blocks, `tokenData`, and live UTXO status to show the
+  current active pool.
+
+The CashVM script is currently `OP_TRUE`, so this is a transaction/regtest proof
+and not a finished covenant. The next hardening milestone is a covenant template
+that validates token category continuity, reserve deltas, fee accounting, and
+pool identity.
 
 ## BCHN-Only Alternative
 
 BCHN can create token outputs using `createrawtransaction` `tokenData`, and
 token-aware signing requires previous-output `tokenData` in
-`signrawtransactionwithkey`. This path avoids Fulcrum but requires more custom
-wallet code.
+`signrawtransactionwithkey`. This path now powers the local AMM proof. It avoids
+Fulcrum but requires custom UTXO discovery and coin selection.
 
 ## References
 

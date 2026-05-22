@@ -17,6 +17,8 @@ math, and production-grade safety checks.
 - Virtual-reserve bonding curve math for launchpad pricing.
 - Deterministic token launch lifecycle regression for create, buy, sell, and
   graduation.
+- BCHN regtest AMM proof that moves a real CashToken output into a CashVM P2SH
+  pool UTXO and swaps BCH into tokens by spending and recreating the pool.
 - BCHN raw transaction safety helper that checks `testmempoolaccept` before
   broadcasting.
 
@@ -45,8 +47,9 @@ npm run demo
 
 Open `http://127.0.0.1:3000`. The backend uses a predefined regtest key,
 submits BCHN transactions itself, mines each action, can mint a real CashToken
-output, can fund and spend a simple CashVM P2SH contract, and links each
-event/token/contract transaction to a local transaction view under `/tx/<txid>`.
+output, can fund and spend a simple CashVM P2SH contract, can create and swap
+against a CashVM-held AMM pool UTXO, and links each event/token/contract
+transaction to a local transaction view under `/tx/<txid>`.
 
 Stop it when finished:
 

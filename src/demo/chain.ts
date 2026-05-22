@@ -1,6 +1,18 @@
 import { hexToBin, privateKeyToP2pkhCashAddress, privateKeyToP2pkhLockingBytecode } from "@bitauth/libauth";
 import { loadConfig } from "../config.js";
 import { BchnRpcClient } from "../node/rpc.js";
+import {
+  demoAmmSwapFeeSats,
+  demoAmmTokenOutputDustSats,
+  demoAmmWalletChangeDustSats,
+  encodeDemoAmmPoolMarkerText,
+  parseDemoAmmPoolMarkerScript,
+  quoteDemoAmmBuy,
+  requireDemoAmmPoolTokenData,
+  selectDemoAmmSwapFundingUtxo,
+  summarizeDemoAmmPool,
+  type DemoAmmPoolUtxo
+} from "./ammProof.js";
 import { encodeCashVmProofText, parseCashVmProofScript } from "./cashVmProof.js";
 import { eventHexToText, eventTextToHex, parseOpReturnEvent, replayDemoEvents, type DemoChainEvent, type DemoEventInput } from "./events.js";
 import { summarizeDemoTokenData, type DemoTokenData } from "./tokenProof.js";
@@ -21,6 +33,8 @@ if (typeof lockingBytecodeResult === "string") {
 
 export const demoAddress = addressResult.address;
 export const demoScriptPubKey = Buffer.from(lockingBytecodeResult).toString("hex");
+export const demoUserPrivateKeyWif = "cMahea7zqjxrtgAbB7LSGbcQUr1uX1ojuat9jZodMN87K7XCyj5v";
+export const demoUserAddress = "bchreg:qqr2l4rteh7j9mu54sfz4gglysfyfgm7esz8wrfywu";
 export const demoCashVmRedeemScript = "51";
 export const demoCashVmScriptPubKey = "a914da1745e9b549bd0bfa1a569971c77eba30cd5a4b87";
 export const demoCashVmAddress = "bchreg:prdpw30fk4ym6zl6rftfjuw806arpn26fveknc0qmt";
@@ -79,6 +93,7 @@ interface TestMempoolAcceptResult {
 export interface DemoChainSnapshot {
   readonly blockCount: number;
   readonly events: readonly DemoChainEvent[];
+  readonly pools: readonly DemoAmmPoolUtxo[];
   readonly replay: ReturnType<typeof replayDemoEvents>;
   readonly tokenProofs: readonly DemoTokenProof[];
   readonly vmProofs: readonly DemoCashVmProof[];
@@ -149,6 +164,71 @@ const findSpendableUtxos = async (): Promise<readonly SpendableUtxo[]> => {
   }
 
   return utxos.sort((left, right) => (left.amountSats < right.amountSats ? -1 : 1));
+};
+
+const findDemoTokenUtxos = async (address: string): Promise<readonly SpendableUtxo[]> => {
+  const blockCount = await rpc.call<number>("getblockcount");
+  const utxos: SpendableUtxo[] = [];
+
+  for (let height = 1; height <= blockCount; height += 1) {
+    const block = await getBlockByHeight(height);
+    for (const tx of block.tx) {
+      for (const output of tx.vout) {
+        if (output.tokenData === undefined || !output.scriptPubKey.addresses?.includes(address)) continue;
+        const txout = await rpc.call<TxOutInfo | null>("gettxout", [tx.txid, output.n, true]);
+        if (txout === null || txout.tokenData === undefined) continue;
+        utxos.push({
+          amountSats: bchToSats(txout.value),
+          scriptPubKey: txout.scriptPubKey.hex,
+          tokenData: txout.tokenData,
+          txid: tx.txid,
+          vout: output.n
+        });
+      }
+    }
+  }
+
+  return utxos.sort((left, right) => {
+    const leftAmount = BigInt(left.tokenData?.amount ?? "0");
+    const rightAmount = BigInt(right.tokenData?.amount ?? "0");
+    return leftAmount < rightAmount ? 1 : -1;
+  });
+};
+
+export const scanDemoAmmPools = async (): Promise<readonly DemoAmmPoolUtxo[]> => {
+  const blockCount = await rpc.call<number>("getblockcount");
+  const pools: DemoAmmPoolUtxo[] = [];
+
+  for (let height = 1; height <= blockCount; height += 1) {
+    const block = await getBlockByHeight(height);
+    for (const tx of block.tx) {
+      const markerCategory = tx.vout
+        .map((output) => parseDemoAmmPoolMarkerScript(output.scriptPubKey.hex))
+        .find((category) => category !== undefined);
+      if (markerCategory === undefined) continue;
+
+      for (const output of tx.vout) {
+        if (output.tokenData === undefined || output.scriptPubKey.hex !== demoCashVmScriptPubKey) continue;
+        try {
+          requireDemoAmmPoolTokenData(output.tokenData, markerCategory);
+        } catch {
+          continue;
+        }
+        const txout = await rpc.call<TxOutInfo | null>("gettxout", [tx.txid, output.n, true]);
+        const pool = {
+          active: txout !== null,
+          height,
+          tokenData: output.tokenData,
+          txid: tx.txid,
+          valueSats: bchToSats(output.value).toString(),
+          vout: output.n
+        };
+        pools.push(pool);
+      }
+    }
+  }
+
+  return pools;
 };
 
 export const scanDemoTokenProofs = async (): Promise<readonly DemoTokenProof[]> => {
@@ -232,9 +312,10 @@ export const scanDemoEvents = async (): Promise<readonly DemoChainEvent[]> => {
 };
 
 export const getDemoSnapshot = async (): Promise<DemoChainSnapshot> => {
-  const [blockCount, events, tokenProofs, vmProofs, utxos] = await Promise.all([
+  const [blockCount, events, pools, tokenProofs, vmProofs, utxos] = await Promise.all([
     rpc.call<number>("getblockcount"),
     scanDemoEvents(),
+    scanDemoAmmPools(),
     scanDemoTokenProofs(),
     scanDemoCashVmProofs(),
     findSpendableUtxos()
@@ -243,6 +324,7 @@ export const getDemoSnapshot = async (): Promise<DemoChainSnapshot> => {
   return {
     blockCount,
     events,
+    pools,
     replay: replayDemoEvents(events),
     tokenProofs,
     vmProofs,
@@ -255,19 +337,21 @@ export const getDemoSnapshot = async (): Promise<DemoChainSnapshot> => {
 };
 
 const signAndSubmit = async (raw: string, utxo: SpendableUtxo): Promise<string> => {
+  return signAndSubmitMany(raw, [utxo]);
+};
+
+const signAndSubmitMany = async (raw: string, utxos: readonly SpendableUtxo[]): Promise<string> => {
   const signed = await rpc.call<SignedRawTransaction>("signrawtransactionwithkey", [
     raw,
-    utxo.redeemScript === undefined ? [demoPrivateKeyWif] : [],
-    [
-      {
-        amount: satsToBch(utxo.amountSats),
-        ...(utxo.redeemScript === undefined ? {} : { redeemScript: utxo.redeemScript }),
-        scriptPubKey: utxo.scriptPubKey,
-        ...(utxo.tokenData === undefined ? {} : { tokenData: utxo.tokenData }),
-        txid: utxo.txid,
-        vout: utxo.vout
-      }
-    ],
+    [demoPrivateKeyWif, demoUserPrivateKeyWif],
+    utxos.map((utxo) => ({
+      amount: satsToBch(utxo.amountSats),
+      ...(utxo.redeemScript === undefined ? {} : { redeemScript: utxo.redeemScript }),
+      scriptPubKey: utxo.scriptPubKey,
+      ...(utxo.tokenData === undefined ? {} : { tokenData: utxo.tokenData }),
+      txid: utxo.txid,
+      vout: utxo.vout
+    })),
     "ALL|FORKID"
   ]);
 
@@ -281,6 +365,137 @@ const signAndSubmit = async (raw: string, utxo: SpendableUtxo): Promise<string> 
   }
 
   return rpc.call<string>("sendrawtransaction", [signed.hex]);
+};
+
+const activeAmmPool = async (): Promise<DemoAmmPoolUtxo | undefined> =>
+  (await scanDemoAmmPools()).filter((pool) => pool.active).at(-1);
+
+export const createDemoAmmPool = async (): Promise<DemoAmmPoolUtxo> => {
+  const existingPool = await activeAmmPool();
+  if (existingPool !== undefined) {
+    return existingPool;
+  }
+
+  const [tokenUtxo] = await findDemoTokenUtxos(demoAddress);
+  if (tokenUtxo === undefined || tokenUtxo.tokenData === undefined) {
+    throw new Error("Mint a real CashToken before creating the AMM pool.");
+  }
+  requireDemoAmmPoolTokenData(tokenUtxo.tokenData);
+
+  const feeSats = 1_000n;
+  const poolValueSats = tokenUtxo.amountSats - feeSats;
+  if (poolValueSats <= 546n) {
+    throw new Error("Token UTXO BCH value is too small to seed an AMM pool.");
+  }
+
+  const raw = await rpc.call<string>("createrawtransaction", [
+    [{ txid: tokenUtxo.txid, vout: tokenUtxo.vout }],
+    [
+      {
+        [demoCashVmAddress]: {
+          amount: satsToBch(poolValueSats),
+          tokenData: tokenUtxo.tokenData
+        }
+      },
+      {
+        data: eventTextToHex(encodeDemoAmmPoolMarkerText(tokenUtxo.tokenData.category))
+      }
+    ]
+  ]);
+  const txid = await signAndSubmit(raw, tokenUtxo);
+  await mineDemoBlock();
+
+  const [pool] = (await scanDemoAmmPools()).filter((entry) => entry.txid === txid);
+  if (pool === undefined) {
+    throw new Error("Created AMM pool was not found after mining.");
+  }
+  summarizeDemoAmmPool(pool);
+  return pool;
+};
+
+export const swapDemoAmmPool = async (
+  bchAmountInSats = 1_000_000n,
+  feeBps = 30
+): Promise<{
+  readonly nextPool: DemoAmmPoolUtxo;
+  readonly tokenAmountOut: string;
+  readonly txid: string;
+}> => {
+  const pool = await activeAmmPool();
+  if (pool === undefined || pool.tokenData.amount === undefined) {
+    throw new Error("Create an AMM pool before swapping.");
+  }
+  const quote = quoteDemoAmmBuy(pool, bchAmountInSats, feeBps);
+  const walletUtxo = selectDemoAmmSwapFundingUtxo(await findSpendableUtxos(), bchAmountInSats);
+  if (walletUtxo === undefined) {
+    throw new Error("No sufficiently large spendable BCH UTXO is available for AMM swap.");
+  }
+
+  const walletChangeSats =
+    walletUtxo.amountSats - bchAmountInSats - demoAmmTokenOutputDustSats - demoAmmSwapFeeSats;
+  if (walletChangeSats <= demoAmmWalletChangeDustSats) {
+    throw new Error("Wallet BCH UTXO is too small for AMM swap.");
+  }
+
+  const poolTokenReserve = BigInt(pool.tokenData.amount);
+  const nextPoolTokenReserve = poolTokenReserve - quote.outputAmount;
+  if (nextPoolTokenReserve <= 0n) {
+    throw new Error("AMM swap would drain the pool token reserve.");
+  }
+
+  const nextPoolValueSats = BigInt(pool.valueSats) + bchAmountInSats;
+  const raw = await rpc.call<string>("createrawtransaction", [
+    [
+      { txid: pool.txid, vout: pool.vout },
+      { txid: walletUtxo.txid, vout: walletUtxo.vout }
+    ],
+    [
+      {
+        [demoCashVmAddress]: {
+          amount: satsToBch(nextPoolValueSats),
+          tokenData: {
+            ...pool.tokenData,
+            amount: nextPoolTokenReserve.toString()
+          }
+        }
+      },
+      {
+        [demoUserAddress]: {
+          amount: satsToBch(demoAmmTokenOutputDustSats),
+          tokenData: {
+            amount: quote.outputAmount.toString(),
+            category: pool.tokenData.category
+          }
+        }
+      },
+      { [demoAddress]: satsToBch(walletChangeSats) },
+      { data: eventTextToHex(encodeDemoAmmPoolMarkerText(pool.tokenData.category)) }
+    ]
+  ]);
+  const txid = await signAndSubmitMany(raw, [
+    {
+      amountSats: BigInt(pool.valueSats),
+      redeemScript: demoCashVmRedeemScript,
+      scriptPubKey: demoCashVmScriptPubKey,
+      tokenData: pool.tokenData,
+      txid: pool.txid,
+      vout: pool.vout
+    },
+    walletUtxo
+  ]);
+  await mineDemoBlock();
+
+  const [nextPool] = (await scanDemoAmmPools()).filter((entry) => entry.txid === txid);
+  if (nextPool === undefined) {
+    throw new Error("AMM swap pool output was not found after mining.");
+  }
+  summarizeDemoAmmPool(nextPool);
+
+  return {
+    nextPool,
+    tokenAmountOut: quote.outputAmount.toString(),
+    txid
+  };
 };
 
 export const createDemoCashVmProof = async (): Promise<DemoCashVmProof> => {
@@ -375,9 +590,11 @@ export const createDemoCashToken = async (): Promise<{
   readonly tokenGenesisTxid: string;
 }> => {
   await ensureDemoFunding();
-  const [fundingUtxo] = await findSpendableUtxos();
+  const fundingUtxo = [...(await findSpendableUtxos())]
+    .sort((left, right) => (left.amountSats < right.amountSats ? 1 : -1))
+    .find((utxo) => utxo.amountSats > 1_000_000n);
   if (fundingUtxo === undefined) {
-    throw new Error("No spendable demo UTXO is available for token genesis.");
+    throw new Error("No sufficiently large spendable demo UTXO is available for token genesis.");
   }
 
   const preGenesisValueSats = fundingUtxo.amountSats - 1_000n;
@@ -413,11 +630,7 @@ export const createDemoCashToken = async (): Promise<{
           amount: satsToBch(tokenValueSats),
           tokenData: {
             amount: "900000",
-            category: preGenesisTxid,
-            nft: {
-              capability: "minting",
-              commitment: "00"
-            }
+            category: preGenesisTxid
           }
         }
       }

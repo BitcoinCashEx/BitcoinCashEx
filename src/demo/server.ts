@@ -1,11 +1,13 @@
 import http from "node:http";
 import {
+  createDemoAmmPool,
   createDemoCashVmProof,
   createDemoCashToken,
   demoAddress,
   ensureDemoFunding,
   getDecodedTransaction,
   getDemoSnapshot,
+  swapDemoAmmPool,
   submitDemoEvent
 } from "./chain.js";
 import { buyLaunchTokens, graduateTokenLaunch, sellLaunchTokens } from "../defi/launchpad.js";
@@ -90,6 +92,9 @@ const renderPage = (): string => `<!doctype html>
           <button id="fund">Fund Wallet</button>
           <button id="token" class="secondary">Mint Real CashToken</button>
           <button id="cashvm" class="secondary">Run CashVM Proof</button>
+          <button id="pool" class="secondary">Create AMM Pool</button>
+          <input id="swapAmount" value="1000000" aria-label="Swap BCH amount sats" />
+          <button id="swap" class="secondary">Swap BCH To Token</button>
           <button id="create">Create Token Launch</button>
           <input id="buyAmount" value="100000" aria-label="Buy amount sats" />
           <button id="buy">Buy</button>
@@ -129,6 +134,7 @@ const renderPage = (): string => `<!doctype html>
         const response = await fetch('/api/state');
         const data = await response.json();
         const launch = data.launch;
+        const activePool = data.pools.filter((pool) => pool.active).at(-1);
         metrics.innerHTML = [
           metric('Height', data.blockCount),
           metric('Wallet', '<code>' + data.wallet.address + '</code>'),
@@ -137,7 +143,9 @@ const renderPage = (): string => `<!doctype html>
           metric('Supply sold', launch ? launch.currentSupply : '0'),
           metric('Remaining tokens', launch ? launch.remainingTokenSupply : '0'),
           metric('Escrow sats', launch ? launch.bchEscrowSats : '0'),
-          metric('Fees sats', launch ? launch.feesCollectedBchSats : '0')
+          metric('Fees sats', launch ? launch.feesCollectedBchSats : '0'),
+          metric('Pool BCH sats', activePool ? activePool.valueSats : 'not created'),
+          metric('Pool tokens', activePool ? activePool.tokenData.amount : 'not created')
         ].join('');
         const tokenProofs = data.tokenProofs.length === 0
           ? '<p>No real CashToken outputs found yet.</p>'
@@ -149,16 +157,23 @@ const renderPage = (): string => `<!doctype html>
           : '<table><thead><tr><th>Height</th><th>Redeem Script</th><th>Contract Tx</th><th>Spend Tx</th></tr></thead><tbody>' +
             data.vmProofs.map((proof) => '<tr><td>' + proof.height + '</td><td><code>' + proof.redeemScript + '</code></td><td><a href="/tx/' + proof.contractTxid + '" target="_blank">' + proof.contractTxid.slice(0, 12) + '...</a></td><td><a href="/tx/' + proof.spendTxid + '" target="_blank">' + proof.spendTxid.slice(0, 12) + '...</a></td></tr>').join('') +
             '</tbody></table>';
+        const pools = data.pools.length === 0
+          ? '<p>No AMM pool UTXOs found yet.</p>'
+          : '<table><thead><tr><th>Height</th><th>Active</th><th>BCH Sats</th><th>Tokens</th><th>Tx</th></tr></thead><tbody>' +
+            data.pools.map((pool) => '<tr><td>' + pool.height + '</td><td>' + pool.active + '</td><td>' + pool.valueSats + '</td><td>' + (pool.tokenData.amount || '0') + '</td><td><a href="/tx/' + pool.txid + '" target="_blank">' + pool.txid.slice(0, 12) + '...</a></td></tr>').join('') +
+            '</tbody></table>';
         const launchEvents = data.history.length === 0
           ? '<p>No launch events mined yet.</p>'
           : '<table><thead><tr><th>Height</th><th>Action</th><th>Tx</th><th>Status After</th></tr></thead><tbody>' +
             data.history.map((entry) => '<tr><td>' + entry.height + '</td><td>' + entry.kind + '</td><td><a href="/tx/' + entry.txid + '" target="_blank">' + entry.txid.slice(0, 12) + '...</a></td><td>' + (entry.statusAfter || '') + '</td></tr>').join('') +
             '</tbody></table>';
-        events.innerHTML = '<h3>Real CashToken Outputs</h3>' + tokenProofs + '<h3>CashVM Contract Spends</h3>' + vmProofs + '<h3>Launch Events</h3>' + launchEvents;
+        events.innerHTML = '<h3>Real CashToken Outputs</h3>' + tokenProofs + '<h3>CashVM AMM Pool UTXOs</h3>' + pools + '<h3>CashVM Contract Spends</h3>' + vmProofs + '<h3>Launch Events</h3>' + launchEvents;
       };
       document.getElementById('fund').onclick = () => post('/api/fund').catch((error) => setStatus(error.message, true));
       document.getElementById('token').onclick = () => post('/api/token').catch((error) => setStatus(error.message, true));
       document.getElementById('cashvm').onclick = () => post('/api/cashvm').catch((error) => setStatus(error.message, true));
+      document.getElementById('pool').onclick = () => post('/api/pool').catch((error) => setStatus(error.message, true));
+      document.getElementById('swap').onclick = () => post('/api/swap', { bchAmountInSats: document.getElementById('swapAmount').value }).catch((error) => setStatus(error.message, true));
       document.getElementById('create').onclick = () => post('/api/create').catch((error) => setStatus(error.message, true));
       document.getElementById('buy').onclick = () => post('/api/buy', { bchAmountInSats: document.getElementById('buyAmount').value }).catch((error) => setStatus(error.message, true));
       document.getElementById('sell').onclick = () => post('/api/sell', { tokenAmountIn: document.getElementById('sellAmount').value }).catch((error) => setStatus(error.message, true));
@@ -192,6 +207,7 @@ const serializeSnapshot = async () => {
           remainingTokenSupply: snapshot.replay.launch.curve.maxSupply - snapshot.replay.launch.curve.currentSupply,
           status: snapshot.replay.launch.status
         },
+    pools: snapshot.pools,
     tokenProofs: snapshot.tokenProofs,
     vmProofs: snapshot.vmProofs,
     wallet: snapshot.wallet
@@ -228,6 +244,19 @@ const server = http.createServer(async (request, response) => {
     if (request.method === "POST" && url.pathname === "/api/cashvm") {
       const result = await createDemoCashVmProof();
       json(response, 200, { txid: result.spendTxid, ...result });
+      return;
+    }
+
+    if (request.method === "POST" && url.pathname === "/api/pool") {
+      const result = await createDemoAmmPool();
+      json(response, 200, { txid: result.txid, pool: result });
+      return;
+    }
+
+    if (request.method === "POST" && url.pathname === "/api/swap") {
+      const body = await parseBody(request);
+      const result = await swapDemoAmmPool(bigintBody(body, "bchAmountInSats"));
+      json(response, 200, result);
       return;
     }
 
