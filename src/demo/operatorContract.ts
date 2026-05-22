@@ -14,9 +14,11 @@ export interface DemoOperatorP2shContract {
 
 export interface DemoP2shSpendAudit {
   readonly derivedScriptPubKey?: string;
+  readonly expectedRedeemScript?: string;
   readonly expectedScriptPubKey: string;
   readonly problems: readonly string[];
   readonly redeemScript?: string;
+  readonly redeemScriptConfirmed?: boolean;
   readonly status: "failed" | "verified";
 }
 
@@ -53,35 +55,46 @@ export const createDemoOperatorP2shContract = (
 };
 
 export const auditDemoP2shSpend = ({
+  expectedRedeemScript,
   expectedScriptPubKey,
   scriptSigHex
 }: {
+  readonly expectedRedeemScript?: string;
   readonly expectedScriptPubKey: string;
   readonly scriptSigHex: string;
 }): DemoP2shSpendAudit => {
   const expected = expectedScriptPubKey.toLowerCase();
+  const expectedRedeem = expectedRedeemScript?.toLowerCase();
   const problems: string[] = [];
   const redeemScript = extractFinalPushDataHex(scriptSigHex);
 
   if (redeemScript === undefined) {
     problems.push("P2SH spend did not reveal a final redeem script push.");
     return {
+      ...(expectedRedeem === undefined ? {} : { expectedRedeemScript: expectedRedeem, redeemScriptConfirmed: false }),
       expectedScriptPubKey: expected,
       problems,
       status: "failed"
     };
   }
 
-  const derivedScriptPubKey = deriveDemoP2shContract(redeemScript).scriptPubKey.toLowerCase();
+  const revealedRedeemScript = redeemScript.toLowerCase();
+  const derivedScriptPubKey = deriveDemoP2shContract(revealedRedeemScript).scriptPubKey.toLowerCase();
   if (derivedScriptPubKey !== expected) {
     problems.push("Redeem script hash does not match the spent CashVM P2SH pool script.");
+  }
+  if (expectedRedeem !== undefined && revealedRedeemScript !== expectedRedeem) {
+    problems.push("P2SH spend did not reveal the expected backend operator redeem script.");
   }
 
   return {
     derivedScriptPubKey,
+    ...(expectedRedeem === undefined
+      ? {}
+      : { expectedRedeemScript: expectedRedeem, redeemScriptConfirmed: revealedRedeemScript === expectedRedeem }),
     expectedScriptPubKey: expected,
     problems,
-    redeemScript,
+    redeemScript: revealedRedeemScript,
     status: problems.length === 0 ? "verified" : "failed"
   };
 };

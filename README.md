@@ -54,15 +54,15 @@ Open `http://127.0.0.1:3000`. The backend uses a predefined regtest key,
 submits BCHN transactions itself, mines each action, can mint a real CashToken
 output, can fund and spend a simple CashVM P2SH contract, can create and swap
 both directions against a CashVM-held AMM pool UTXO, renders decoded AMM trade
-history plus reserve-transition and CashVM spend audit rows, can run a
-one-click AMM proof pack, can run a one-click launch-to-AMM proof pack, and
-links each trade, event, token, and contract transaction to a local transaction
-view under `/tx/<txid>`. Launch event pages show decoded event details. AMM
-swap transaction pages include a compact AMM/CashVM proof summary, decoded
-trade marker, reserve-transition audit, and P2SH redeem-script spend audit for
-that exact transaction. The launch-to-AMM receipt also exposes the expected and
-actual pool-funding outpoint so the UI proves the AMM pool was seeded from the
-bound CashToken genesis output.
+history plus reserve-transition, CashVM spend, and operator redeem-script audit
+rows, can run a one-click AMM proof pack, can run a one-click launch-to-AMM
+proof pack, and links each trade, event, token, and contract transaction to a
+local transaction view under `/tx/<txid>`. Launch event pages show decoded event
+details. AMM swap transaction pages include a compact AMM/CashVM proof summary,
+decoded trade marker, reserve-transition audit, and P2SH redeem-script spend
+audit for that exact transaction. The launch-to-AMM receipt also exposes the
+expected and actual pool-funding outpoint so the UI proves the AMM pool was
+seeded from the bound CashToken genesis output.
 
 Stop it when finished:
 

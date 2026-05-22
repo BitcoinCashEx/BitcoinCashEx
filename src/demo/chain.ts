@@ -397,6 +397,7 @@ export const scanDemoAmmTransitionAudits = async (): Promise<readonly DemoAmmTra
       poolInput === undefined
         ? undefined
         : auditDemoP2shSpend({
+            expectedRedeemScript: demoCashVmRedeemScript,
             expectedScriptPubKey: previousPool.scriptPubKey,
             scriptSigHex: poolInput.scriptSigHex
           });

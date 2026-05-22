@@ -47,9 +47,11 @@ export interface DemoAmmTransitionAudit {
   readonly category: string;
   readonly cashVmSpend?: {
     readonly derivedScriptPubKey?: string;
+    readonly expectedRedeemScript?: string;
     readonly expectedScriptPubKey: string;
     readonly problems: readonly string[];
     readonly redeemScript?: string;
+    readonly redeemScriptConfirmed?: boolean;
     readonly status: "failed" | "verified";
   };
   readonly constantProductAfter: string;

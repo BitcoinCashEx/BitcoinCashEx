@@ -69,6 +69,8 @@ The local demo now proves the first on-chain AMM path on BCHN regtest:
 - New CashVM pool and proof spends use a P2SH-wrapped P2PKH redeem script tied
   to the backend operator key, so they require the backend signature instead of
   being anyone-can-spend.
+- AMM swap audits now require the revealed P2SH redeem script to equal that
+  backend operator script, not only to hash to the spent pool script.
 - A BCH-to-token swap transaction spends the active pool UTXO plus a backend
   BCH UTXO, then recreates the pool with increased BCH reserves and reduced
   token reserves.
@@ -90,8 +92,9 @@ The local demo now proves the first on-chain AMM path on BCHN regtest:
   invariant does not decrease.
 - Each AMM transition audit also extracts the final redeem-script push from the
   pool input script, hashes it as P2SH, and verifies it matches the previous
-  CashVM pool locking script. The mined transaction proves BCHN accepted that
-  CashVM spend.
+  CashVM pool locking script. It also verifies the revealed redeem script is the
+  expected backend operator script. The mined transaction proves BCHN accepted
+  that CashVM spend.
 - `/api/proof-pack` runs a full backend-owned AMM proof: it ensures a CashVM
   pool exists, mines a BCH-to-token swap, mines a token-to-BCH swap, then
   returns only after `/api/state.proofPack` verifies the latest swap pair from
@@ -105,33 +108,33 @@ The local demo now proves the first on-chain AMM path on BCHN regtest:
   funding outpoint, AMM audit, and CashVM spend linkage.
 - `/tx/<swap-txid>` includes `ammTrade` and `ammTransitionAudit.cashVmSpend`,
   making each local explorer link a self-contained proof for that swap
-  transaction.
+  transaction, including operator redeem-script confirmation.
 - `/tx/<launch-event-txid>` includes a decoded launch-event summary, so TOKEN
   binding links show the real CashToken category and genesis transaction.
 
 Current local proof values:
 
 - Latest launch TOKEN binding event:
-  `9c5b31a952865485875fbbf4fcdf50b424247963d88892fcb9a0d4a57f8adaa8` at
-  height `159`.
+  `9b1b1466b78685407252d39543022b5524405e9220ca88d2db461f5ba4191bb8` at
+  height `165`.
 - Latest launch-bound CashToken category:
-  `197a1b78eedcdc88af7838819cccbdf4926f582987c1207e790573f2bbcdb36d`.
+  `36ff28d7dfd0d5c4421cdba35015afd26e3172b2182a76c5eaeffa4e889c2799`.
 - Latest launch-bound token genesis:
-  `e385df519147f6f8d421055caffa1e785f279420687e1057a6be344f748c270a` at
-  height `158`.
+  `470681c0d8e66907ec7952c36627d37d14d3387d59c1dfbbdf4f43fbb00744c0` at
+  height `164`.
 - Latest launch-bound CashVM pool transaction:
-  `48a4e7c5736c3eecbe8670edf804af9ac0275c7acaa182ea6f420967cb654d5f` at
-  height `160`.
+  `7efef1830d90ea375c7586a372ed17f66aa6b4b1317f4ed6b956706eb11b1046` at
+  height `166`.
 - Latest launch-bound pool funding outpoint:
-  `e385df519147f6f8d421055caffa1e785f279420687e1057a6be344f748c270a:0`,
+  `470681c0d8e66907ec7952c36627d37d14d3387d59c1dfbbdf4f43fbb00744c0:0`,
   verified as the pool input.
 - Latest migration seed amounts: `328119` sats and `133581` CashTokens.
 - Latest marker-backed BCH-to-token swap:
-  `8be99b8536ef5fda95c6ce12a757ea8cf419b1398a21d76103ab7d7ec758469c` at
-  height `161`.
+  `e131a1e1be0c941eca5bf23ee51827d17c434b7b6c30bf8c44819c04d9022d4e` at
+  height `167`.
 - Latest marker-backed token-to-BCH swap:
-  `63aee57c9dc65d9869855a27950c44281a09c6380d2703cb16bd9eb33713ab67` at
-  height `162`.
+  `3d80a015af6612cce4c2907fd190b82479ff7ea7f82ffed32acb2e0403ca10cc` at
+  height `168`.
 - Active pool reserves after the latest reverse swap: `423993` sats and `103451`
   CashTokens.
 - Backend user payout after the BCH-to-token swap: `31130` CashTokens.
@@ -141,6 +144,8 @@ Current local proof values:
   `e226c354e2dffefebd85762d64f34a453683489e8407800fe59e8411f65cd3b1`.
 - Current redeem script:
   `76a914751e76e8199196d454941c45d1b3a323f1433bd688ac`.
+- Latest AMM swap CashVM audits confirmed that redeem script for both swap
+  spends.
 
 This is an on-chain UTXO, CashToken, CashVM P2SH, transaction construction,
 signing, mempool, mining, and explorer proof. It is still not a production
@@ -182,8 +187,8 @@ covenant that enforces the AMM reserve transition inside CashVM.
   input/output amounts, block height, token category, and local `/tx/<txid>`
   explorer links.
 - The UI renders an `AMM Reserve Audit` table with expected versus actual pool
-  reserves, prior-pool spend confirmation, CashVM spend status, and per-swap
-  verification status.
+  reserves, prior-pool spend confirmation, CashVM spend status, operator script
+  confirmation, and per-swap verification status.
 - The UI has a `Run Full AMM Proof` button and a `Latest Proof Pack` receipt
   with the latest verified BCH-to-token and token-to-BCH explorer links.
 - The UI has a `Run Launch To AMM Proof` button and receipt with launch token
@@ -192,7 +197,7 @@ covenant that enforces the AMM reserve transition inside CashVM.
 - `/tx/<txid>` acts as a local transaction explorer for the mined transaction;
   launch event pages include decoded event data, and AMM swap pages include a
   compact AMM/CashVM proof summary, decoded trade marker, reserve audit data,
-  and CashVM P2SH spend audit data.
+  and CashVM P2SH spend audit data with expected operator redeem script.
 
 This proves backend-controlled local-chain execution, real CashToken genesis,
 operator-gated CashVM contract spends, CashVM-held AMM pool UTXOs, backend

@@ -184,6 +184,10 @@ const renderPage = (): string => `<!doctype html>
         if (!audit.cashVmSpend) return '<span class="bad">missing</span>';
         return '<span class="' + (audit.cashVmSpend.status === 'verified' ? 'ok' : 'bad') + '">' + audit.cashVmSpend.status + '</span>';
       };
+      const operatorScriptStatus = (audit) => {
+        if (!audit.cashVmSpend) return '<span class="bad">missing</span>';
+        return '<span class="' + (audit.cashVmSpend.redeemScriptConfirmed ? 'ok' : 'bad') + '">' + (audit.cashVmSpend.redeemScriptConfirmed ? 'verified' : 'failed') + '</span>';
+      };
       const refresh = async () => {
         const response = await fetch('/api/state');
         const data = await response.json();
@@ -225,8 +229,8 @@ const renderPage = (): string => `<!doctype html>
             '</tbody></table>';
         audits.innerHTML = data.transitionAudits.length === 0
           ? '<p>No AMM reserve audits found yet.</p>'
-          : '<table><thead><tr><th>Height</th><th>Status</th><th>CashVM Spend</th><th>Side</th><th>Expected BCH</th><th>Actual BCH</th><th>Expected Tokens</th><th>Actual Tokens</th><th>Spent Pool</th><th>Tx</th></tr></thead><tbody>' +
-            data.transitionAudits.map((audit) => '<tr><td>' + audit.height + '</td><td><span class="' + (audit.status === 'verified' ? 'ok' : 'bad') + '">' + audit.status + '</span></td><td>' + cashVmSpendStatus(audit) + '</td><td>' + sideName(audit.side) + '</td><td>' + amount(audit.expectedBchReserveSats) + '</td><td>' + amount(audit.actualBchReserveSats) + '</td><td>' + amount(audit.expectedTokenReserve) + '</td><td>' + amount(audit.actualTokenReserve) + '</td><td>' + audit.poolSpendConfirmed + '</td><td>' + txLink(audit.txid) + '</td></tr>').join('') +
+          : '<table><thead><tr><th>Height</th><th>Status</th><th>CashVM Spend</th><th>Operator Script</th><th>Side</th><th>Expected BCH</th><th>Actual BCH</th><th>Expected Tokens</th><th>Actual Tokens</th><th>Spent Pool</th><th>Tx</th></tr></thead><tbody>' +
+            data.transitionAudits.map((audit) => '<tr><td>' + audit.height + '</td><td><span class="' + (audit.status === 'verified' ? 'ok' : 'bad') + '">' + audit.status + '</span></td><td>' + cashVmSpendStatus(audit) + '</td><td>' + operatorScriptStatus(audit) + '</td><td>' + sideName(audit.side) + '</td><td>' + amount(audit.expectedBchReserveSats) + '</td><td>' + amount(audit.actualBchReserveSats) + '</td><td>' + amount(audit.expectedTokenReserve) + '</td><td>' + amount(audit.actualTokenReserve) + '</td><td>' + audit.poolSpendConfirmed + '</td><td>' + txLink(audit.txid) + '</td></tr>').join('') +
             '</tbody></table>';
         const tokenProofs = data.tokenProofs.length === 0
           ? '<p>No real CashToken outputs found yet.</p>'
@@ -347,12 +351,14 @@ const renderTxPage = (txid: string, decoded: Awaited<ReturnType<typeof getDecode
                 <div class="metric"><span class="label">Trade side</span><span class="value">${escapeHtml(trade.side)}</span></div>
                 <div class="metric"><span class="label">Audit status</span><span class="value ${statusClass}">${escapeHtml(audit.status)}</span></div>
                 <div class="metric"><span class="label">CashVM spend</span><span class="value ${cashVmClass}">${escapeHtml(cashVmSpend?.status ?? "missing")}</span></div>
+                <div class="metric"><span class="label">Operator script</span><span class="value ${cashVmSpend?.redeemScriptConfirmed ? "ok" : "bad"}">${escapeHtml(cashVmSpend?.redeemScriptConfirmed ? "verified" : "failed")}</span></div>
                 <div class="metric"><span class="label">Spent pool</span><span class="value">${escapeHtml(audit.poolSpendConfirmed)}</span></div>
                 <div class="metric"><span class="label">Expected BCH</span><span class="value">${escapeHtml(audit.expectedBchReserveSats)}</span></div>
                 <div class="metric"><span class="label">Actual BCH</span><span class="value">${escapeHtml(audit.actualBchReserveSats)}</span></div>
                 <div class="metric"><span class="label">Expected tokens</span><span class="value">${escapeHtml(audit.expectedTokenReserve)}</span></div>
                 <div class="metric"><span class="label">Actual tokens</span><span class="value">${escapeHtml(audit.actualTokenReserve)}</span></div>
                 <div class="metric"><span class="label">Redeem script</span><span class="value"><code>${escapeHtml(cashVmSpend?.redeemScript ?? "")}</code></span></div>
+                <div class="metric"><span class="label">Expected redeem script</span><span class="value"><code>${escapeHtml(cashVmSpend?.expectedRedeemScript ?? "")}</code></span></div>
                 <div class="metric"><span class="label">P2SH script</span><span class="value"><code>${escapeHtml(cashVmSpend?.expectedScriptPubKey ?? "")}</code></span></div>
               </div>`
         }

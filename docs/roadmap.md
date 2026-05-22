@@ -48,6 +48,8 @@
 
 - Add property tests for protocol math and transaction invariants.
 - Add static checks for unsafe RPC calls, secrets, and mainnet broadcast paths.
+- [x] Add backend-operator redeem-script verification to AMM CashVM spend
+  audits.
 - Add reproducible deployment documentation.
 - Add external review checkpoints before any mainnet release.
 

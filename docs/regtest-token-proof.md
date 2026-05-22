@@ -74,7 +74,8 @@ The current implementation uses BCHN RPC directly, without Fulcrum:
   CashVM pool UTXO, the decoded trade marker, and the recreated pool UTXO. It
   checks the previous pool outpoint is spent, expected reserves match actual
   reserves, the constant-product invariant does not decrease, and the revealed
-  redeem script hashes back to the spent CashVM P2SH pool script.
+  redeem script hashes back to the spent CashVM P2SH pool script. It also checks
+  the revealed redeem script is the expected backend operator script.
 - `/api/proof-pack` is the one-click path: the backend mines a fresh
   BCH-to-token swap and a fresh token-to-BCH swap, then returns the latest
   verified proof receipt and local explorer links.
@@ -87,7 +88,7 @@ The current implementation uses BCHN RPC directly, without Fulcrum:
 - `/tx/<swap-txid>` returns decoded `ammTrade` and `ammTransitionAudit` fields,
   so the explorer link itself shows marker data, expected reserves, actual
   reserves, previous pool spend confirmation, CashVM P2SH spend status, and
-  verification status.
+  operator redeem-script verification status.
 - `/tx/<launch-event-txid>` shows decoded launch event details, including TOKEN
   binding category and token genesis transaction ids.
 

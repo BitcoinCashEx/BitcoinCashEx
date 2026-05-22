@@ -18,7 +18,8 @@ This is not a full Uniswap implementation yet. It is now a working local
 transaction proof for AMM pool custody and swap state transitions. The current
 P2SH proof script requires the backend operator signature; the remaining
 production step is replacing backend policy with a covenant that enforces the
-reserve transition inside CashVM.
+reserve transition inside CashVM. The local audit checks each AMM pool spend
+reveals the expected backend operator redeem script.
 
 ## Pump.fun-Style Model On Bitcoin Cash
 
@@ -151,5 +152,5 @@ There is now also a local event-backed proof UI:
   Audit` tables from `/api/state`, and links trade, event, token, and contract
   rows to local `/tx/<txid>` transaction views.
 - AMM swap transaction views include the decoded trade marker, matching
-  reserve-transition audit, and CashVM P2SH redeem-script spend audit, so the
-  proof-pack links can be opened directly.
+  reserve-transition audit, and CashVM P2SH redeem-script spend audit with
+  operator script confirmation, so the proof-pack links can be opened directly.

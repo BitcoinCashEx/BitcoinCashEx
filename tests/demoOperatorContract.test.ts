@@ -31,15 +31,39 @@ describe("demo operator CashVM contract", () => {
 
     expect(
       auditDemoP2shSpend({
+        expectedRedeemScript: contract.redeemScript,
         expectedScriptPubKey: contract.scriptPubKey,
         scriptSigHex: scriptSigWithFinalRedeemScript
       })
     ).toEqual({
       derivedScriptPubKey: contract.scriptPubKey,
+      expectedRedeemScript: contract.redeemScript,
       expectedScriptPubKey: contract.scriptPubKey,
       problems: [],
       redeemScript: contract.redeemScript,
+      redeemScriptConfirmed: true,
       status: "verified"
+    });
+  });
+
+  it("flags P2SH spends that reveal a non-operator redeem script", () => {
+    const operatorContract = createDemoOperatorP2shContract(privateKey);
+    const opTrueContract = deriveDemoP2shContract("51");
+
+    expect(
+      auditDemoP2shSpend({
+        expectedRedeemScript: operatorContract.redeemScript,
+        expectedScriptPubKey: opTrueContract.scriptPubKey,
+        scriptSigHex: "0151"
+      })
+    ).toMatchObject({
+      derivedScriptPubKey: opTrueContract.scriptPubKey,
+      expectedRedeemScript: operatorContract.redeemScript,
+      expectedScriptPubKey: opTrueContract.scriptPubKey,
+      problems: ["P2SH spend did not reveal the expected backend operator redeem script."],
+      redeemScript: "51",
+      redeemScriptConfirmed: false,
+      status: "failed"
     });
   });
 
