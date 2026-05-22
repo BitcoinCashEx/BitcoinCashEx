@@ -151,7 +151,11 @@ export const parseOpReturnEvent = (scriptHex: string): DemoEventInput | undefine
   }
   if (length === undefined || bytes.length < offset + length) return undefined;
 
-  return decodeDemoEventText(bytes.subarray(offset, offset + length).toString("utf8"));
+  try {
+    return decodeDemoEventText(bytes.subarray(offset, offset + length).toString("utf8"));
+  } catch {
+    return undefined;
+  }
 };
 
 export const replayDemoEvents = (events: readonly DemoChainEvent[]): DemoReplayState => {

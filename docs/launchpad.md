@@ -109,5 +109,7 @@ There is now also a local event-backed proof UI:
 - The backend submits and mines BCHN regtest transactions for each action.
 - Click mint real CashToken to create a pre-genesis transaction, spend vout `0`,
   and mine a BCHN transaction with native `tokenData`.
+- Click run CashVM proof to fund a P2SH CashVM contract and spend it by
+  revealing the redeem script.
 - The page reconstructs state from mined OP_RETURN event transactions and links
   to local `/tx/<txid>` transaction views.

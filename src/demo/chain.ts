@@ -1,6 +1,7 @@
 import { hexToBin, privateKeyToP2pkhCashAddress, privateKeyToP2pkhLockingBytecode } from "@bitauth/libauth";
 import { loadConfig } from "../config.js";
 import { BchnRpcClient } from "../node/rpc.js";
+import { encodeCashVmProofText, parseCashVmProofScript } from "./cashVmProof.js";
 import { eventHexToText, eventTextToHex, parseOpReturnEvent, replayDemoEvents, type DemoChainEvent, type DemoEventInput } from "./events.js";
 import { summarizeDemoTokenData, type DemoTokenData } from "./tokenProof.js";
 
@@ -20,6 +21,9 @@ if (typeof lockingBytecodeResult === "string") {
 
 export const demoAddress = addressResult.address;
 export const demoScriptPubKey = Buffer.from(lockingBytecodeResult).toString("hex");
+export const demoCashVmRedeemScript = "51";
+export const demoCashVmScriptPubKey = "a914da1745e9b549bd0bfa1a569971c77eba30cd5a4b87";
+export const demoCashVmAddress = "bchreg:prdpw30fk4ym6zl6rftfjuw806arpn26fveknc0qmt";
 
 interface BlockTx {
   readonly txid: string;
@@ -54,6 +58,7 @@ export type TokenData = DemoTokenData;
 
 interface SpendableUtxo {
   readonly amountSats: bigint;
+  readonly redeemScript?: string;
   readonly scriptPubKey: string;
   readonly tokenData?: TokenData;
   readonly txid: string;
@@ -76,6 +81,7 @@ export interface DemoChainSnapshot {
   readonly events: readonly DemoChainEvent[];
   readonly replay: ReturnType<typeof replayDemoEvents>;
   readonly tokenProofs: readonly DemoTokenProof[];
+  readonly vmProofs: readonly DemoCashVmProof[];
   readonly wallet: {
     readonly address: string;
     readonly balanceSats: string;
@@ -89,6 +95,14 @@ export interface DemoTokenProof {
   readonly txid: string;
   readonly valueSats: string;
   readonly vout: number;
+}
+
+export interface DemoCashVmProof {
+  readonly contractScriptPubKey: string;
+  readonly contractTxid: string;
+  readonly height: number;
+  readonly redeemScript: string;
+  readonly spendTxid: string;
 }
 
 const config = loadConfig();
@@ -161,6 +175,31 @@ export const scanDemoTokenProofs = async (): Promise<readonly DemoTokenProof[]> 
   return proofs;
 };
 
+export const scanDemoCashVmProofs = async (): Promise<readonly DemoCashVmProof[]> => {
+  const blockCount = await rpc.call<number>("getblockcount");
+  const proofs: DemoCashVmProof[] = [];
+
+  for (let height = 1; height <= blockCount; height += 1) {
+    const block = await getBlockByHeight(height);
+    for (const tx of block.tx) {
+      for (const output of tx.vout) {
+        const proof = parseCashVmProofScript(output.scriptPubKey.hex);
+        if (proof !== undefined) {
+          proofs.push({
+            contractScriptPubKey: demoCashVmScriptPubKey,
+            contractTxid: proof.contractTxid,
+            height,
+            redeemScript: demoCashVmRedeemScript,
+            spendTxid: tx.txid
+          });
+        }
+      }
+    }
+  }
+
+  return proofs;
+};
+
 export const ensureDemoFunding = async (): Promise<void> => {
   const utxos = await findSpendableUtxos();
   const balance = utxos.reduce((sum, utxo) => sum + utxo.amountSats, 0n);
@@ -193,10 +232,11 @@ export const scanDemoEvents = async (): Promise<readonly DemoChainEvent[]> => {
 };
 
 export const getDemoSnapshot = async (): Promise<DemoChainSnapshot> => {
-  const [blockCount, events, tokenProofs, utxos] = await Promise.all([
+  const [blockCount, events, tokenProofs, vmProofs, utxos] = await Promise.all([
     rpc.call<number>("getblockcount"),
     scanDemoEvents(),
     scanDemoTokenProofs(),
+    scanDemoCashVmProofs(),
     findSpendableUtxos()
   ]);
 
@@ -205,6 +245,7 @@ export const getDemoSnapshot = async (): Promise<DemoChainSnapshot> => {
     events,
     replay: replayDemoEvents(events),
     tokenProofs,
+    vmProofs,
     wallet: {
       address: demoAddress,
       balanceSats: utxos.reduce((sum, utxo) => sum + utxo.amountSats, 0n).toString(),
@@ -216,10 +257,11 @@ export const getDemoSnapshot = async (): Promise<DemoChainSnapshot> => {
 const signAndSubmit = async (raw: string, utxo: SpendableUtxo): Promise<string> => {
   const signed = await rpc.call<SignedRawTransaction>("signrawtransactionwithkey", [
     raw,
-    [demoPrivateKeyWif],
+    utxo.redeemScript === undefined ? [demoPrivateKeyWif] : [],
     [
       {
         amount: satsToBch(utxo.amountSats),
+        ...(utxo.redeemScript === undefined ? {} : { redeemScript: utxo.redeemScript }),
         scriptPubKey: utxo.scriptPubKey,
         ...(utxo.tokenData === undefined ? {} : { tokenData: utxo.tokenData }),
         txid: utxo.txid,
@@ -239,6 +281,50 @@ const signAndSubmit = async (raw: string, utxo: SpendableUtxo): Promise<string> 
   }
 
   return rpc.call<string>("sendrawtransaction", [signed.hex]);
+};
+
+export const createDemoCashVmProof = async (): Promise<DemoCashVmProof> => {
+  await ensureDemoFunding();
+  const [fundingUtxo] = await findSpendableUtxos();
+  if (fundingUtxo === undefined) {
+    throw new Error("No spendable demo UTXO is available for CashVM proof.");
+  }
+
+  const contractValueSats = 2_000n;
+  const feeSats = 1_000n;
+  const changeSats = fundingUtxo.amountSats - contractValueSats - feeSats;
+  if (changeSats <= 546n) {
+    throw new Error("Demo UTXO is too small for CashVM proof funding.");
+  }
+
+  const fundingRaw = await rpc.call<string>("createrawtransaction", [
+    [{ txid: fundingUtxo.txid, vout: fundingUtxo.vout }],
+    [{ [demoCashVmAddress]: satsToBch(contractValueSats) }, { [demoAddress]: satsToBch(changeSats) }]
+  ]);
+  const contractTxid = await signAndSubmit(fundingRaw, fundingUtxo);
+  await mineDemoBlock();
+
+  const spendRaw = await rpc.call<string>("createrawtransaction", [
+    [{ txid: contractTxid, vout: 0 }],
+    [{ data: eventTextToHex(encodeCashVmProofText(contractTxid)) }, { [demoAddress]: satsToBch(1_000n) }]
+  ]);
+  const spendTxid = await signAndSubmit(spendRaw, {
+    amountSats: contractValueSats,
+    redeemScript: demoCashVmRedeemScript,
+    scriptPubKey: demoCashVmScriptPubKey,
+    txid: contractTxid,
+    vout: 0
+  });
+  await mineDemoBlock();
+
+  const blockCount = await rpc.call<number>("getblockcount");
+  return {
+    contractScriptPubKey: demoCashVmScriptPubKey,
+    contractTxid,
+    height: blockCount,
+    redeemScript: demoCashVmRedeemScript,
+    spendTxid
+  };
 };
 
 export const submitDemoEvent = async (event: DemoEventInput): Promise<string> => {
@@ -353,7 +439,7 @@ export const getDecodedTransaction = async (txid: string) => {
     readonly confirmations?: number;
     readonly hex: string;
     readonly txid: string;
-    readonly vout: readonly { readonly scriptPubKey: { readonly hex: string }; readonly value: number }[];
+    readonly vout: readonly { readonly scriptPubKey: { readonly hex: string }; readonly tokenData?: TokenData; readonly value: number }[];
   }>("getrawtransaction", [txid, true]);
 
   const event = tx.vout
@@ -370,5 +456,9 @@ export const getDecodedTransaction = async (txid: string) => {
     })
     .find((entry) => entry !== undefined);
 
-  return { event, eventText: text, tx };
+  const cashVmProof = tx.vout
+    .map((output) => parseCashVmProofScript(output.scriptPubKey.hex))
+    .find((entry) => entry !== undefined);
+
+  return { cashVmProof, event, eventText: text, tx };
 };

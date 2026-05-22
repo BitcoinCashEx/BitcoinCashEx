@@ -45,8 +45,8 @@ npm run demo
 
 Open `http://127.0.0.1:3000`. The backend uses a predefined regtest key,
 submits BCHN transactions itself, mines each action, can mint a real CashToken
-output, and links each event/token transaction to a local transaction view under
-`/tx/<txid>`.
+output, can fund and spend a simple CashVM P2SH contract, and links each
+event/token/contract transaction to a local transaction view under `/tx/<txid>`.
 
 Stop it when finished:
 

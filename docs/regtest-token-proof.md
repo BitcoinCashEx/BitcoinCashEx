@@ -7,9 +7,10 @@ CashToken UTXOs on regtest.
 The repository now includes an intermediate local proof UI that submits and
 mines backend-controlled BCHN regtest event transactions. It also creates a real
 CashToken output by mining a pre-genesis transaction and spending vout `0` in a
-token genesis transaction. This proves backend transaction submission,
-chain-derived state, and native BCHN `tokenData`, but not CashToken covenant
-custody.
+token genesis transaction. It also funds and spends a simple P2SH CashVM
+contract. This proves backend transaction submission, chain-derived state,
+native BCHN `tokenData`, and basic CashVM spend plumbing, but not CashToken
+covenant custody.
 
 ## Practical Stack
 

@@ -61,13 +61,16 @@ transactions, spends launch covenant UTXOs, and mines the lifecycle on BCHN.
 - Each submitted action is mined into a block.
 - The UI can also create a real CashToken output via BCHN raw transactions:
   pre-genesis vout `0`, token genesis, `tokenData.amount`, and minting NFT.
+- The UI can fund and spend a simple CashVM P2SH contract. The current demo
+  redeem script is `51` (`OP_TRUE`), so the proof is VM execution and spend
+  plumbing, not a production covenant.
 - `/api/state` scans BCHN blocks and reconstructs launch state from chain
-  events and token outputs.
+  events, token outputs, and CashVM spend proofs.
 - `/tx/<txid>` acts as a local transaction explorer for the mined event.
 
 This proves backend-controlled local-chain execution, real CashToken genesis,
-and chain-derived UI state. It still does not prove a production CashVM covenant
-holding reserves.
+simple CashVM contract spends, and chain-derived UI state. It still does not
+prove a production CashVM covenant holding reserves.
 
 ## Current Validation
 
@@ -83,8 +86,8 @@ npm run node:health
 
 Current local result:
 
-- 11 test files.
-- 31 unit tests.
+- 12 test files.
+- 34 unit tests.
 - TypeScript strict mode passes.
 - Build passes.
 - npm audit reports 0 vulnerabilities.
