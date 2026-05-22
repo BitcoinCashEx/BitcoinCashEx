@@ -2,6 +2,7 @@ export * from "./cashvm/bytecode.js";
 export * from "./cashvm/capabilities.js";
 export * from "./config.js";
 export * from "./defi/assets.js";
+export * from "./defi/bondingCurve.js";
 export * from "./defi/constantProduct.js";
 export * from "./defi/liquidity.js";
 export * from "./defi/slippage.js";

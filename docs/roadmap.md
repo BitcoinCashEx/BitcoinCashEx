@@ -24,6 +24,15 @@
 - [ ] Add deterministic fee and dust handling.
 - Build transaction builders for deposit, swap, withdraw, and cancel flows.
 
+## Phase 2.5: Launchpad And Bonding Curve
+
+- [x] Add virtual-reserve bonding curve quote math.
+- [ ] Add launch configuration validation.
+- [ ] Add graduation threshold calculation.
+- [ ] Add buy, sell, and graduate transaction data models.
+- [ ] Add CashVM contract templates for curve state and migration.
+- [ ] Add regtest CashToken lifecycle tests.
+
 ## Phase 3: Indexing And State
 
 - Add BCHN RPC and ZMQ ingestion.

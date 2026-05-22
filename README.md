@@ -14,6 +14,7 @@ math, and production-grade safety checks.
 - CashToken asset metadata validation.
 - Liquidity mint, add, and remove quote math.
 - Slippage guards.
+- Virtual-reserve bonding curve math for launchpad pricing.
 - BCHN raw transaction safety helper that checks `testmempoolaccept` before
   broadcasting.
 
@@ -45,6 +46,8 @@ npm run node:down
 The implementation roadmap is maintained in [docs/roadmap.md](docs/roadmap.md).
 The node selection and CashVM activation notes are in
 [docs/node-selection.md](docs/node-selection.md).
+The pump.fun-style launchpad direction is described in
+[docs/launchpad.md](docs/launchpad.md).
 
 ## Implemented Modules
 
@@ -57,3 +60,5 @@ The node selection and CashVM activation notes are in
 - [src/cashvm](src/cashvm): CashVM upgrade metadata and bytecode helpers.
 - [src/defi](src/defi): BCH/CashToken assets, swap math, liquidity math, and
   slippage guards.
+- [src/defi/bondingCurve.ts](src/defi/bondingCurve.ts): pump.fun-style
+  virtual-reserve buy/sell quote math.

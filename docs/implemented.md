@@ -18,10 +18,12 @@
 - BCH and CashToken asset metadata types.
 - CashToken category, decimal, and symbol validation.
 - Constant-product AMM quote and reserve transition math.
+- Virtual-reserve bonding curve buy/sell quote math.
 - Liquidity initialization with locked minimum liquidity.
 - Proportional add-liquidity quote with excess-side refunds.
 - Proportional remove-liquidity quote.
 - Slippage minimum-output calculations.
+- Bonding-curve remaining-supply and slippage calculations.
 
 ## Transaction Safety
 
@@ -44,8 +46,8 @@ npm run node:health
 
 Current local result:
 
-- 7 test files.
-- 20 unit tests.
+- 8 test files.
+- 24 unit tests.
 - TypeScript strict mode passes.
 - Build passes.
 - npm audit reports 0 vulnerabilities.
