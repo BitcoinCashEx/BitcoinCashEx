@@ -84,6 +84,8 @@ Reasons to start here:
   `src/demo/chain.ts`, `src/demo/ammProof.ts`, and `tests/demoAmmProof.test.ts`.
 - Add two-sided BCH-to-token and token-to-BCH AMM demo swaps. Done in
   `src/demo/chain.ts` and `src/demo/server.ts`.
+- Add decoded AMM trade history to the demo UI and `/api/state` response. Done
+  in `src/demo/server.ts`.
 - Add transaction-builder data models for create, buy, sell, and graduate.
 - Add CashScript or libauth contract templates after the math has full property
   coverage.
@@ -128,5 +130,6 @@ There is now also a local event-backed proof UI:
 - Click swap token to BCH to spend the active pool and predefined user's
   CashToken UTXO, recreate the pool, and pay BCH plus token change back to that
   user address.
-- The page reconstructs state from mined OP_RETURN event transactions and links
-  to local `/tx/<txid>` transaction views.
+- The page reconstructs state from mined OP_RETURN event transactions, renders
+  an `AMM Trades` table from `/api/state.trades`, and links trade, event,
+  token, and contract rows to local `/tx/<txid>` transaction views.

@@ -112,6 +112,10 @@ const renderPage = (): string => `<!doctype html>
         <div class="grid" id="metrics"></div>
       </section>
       <section>
+        <h2>AMM Trades</h2>
+        <div id="trades"></div>
+      </section>
+      <section>
         <h2>On-Chain Events</h2>
         <div id="events"></div>
       </section>
@@ -119,6 +123,7 @@ const renderPage = (): string => `<!doctype html>
     <script>
       const status = document.getElementById('status');
       const metrics = document.getElementById('metrics');
+      const trades = document.getElementById('trades');
       const events = document.getElementById('events');
       const setStatus = (text, isError = false) => {
         status.textContent = text;
@@ -133,6 +138,18 @@ const renderPage = (): string => `<!doctype html>
         await refresh();
       };
       const metric = (label, value) => '<div class="metric"><span class="label">' + label + '</span><span class="value">' + value + '</span></div>';
+      const txLink = (txid) => '<a href="/tx/' + txid + '" target="_blank">' + txid.slice(0, 12) + '...</a>';
+      const amount = (value) => {
+        const text = String(value);
+        return /^[0-9]+$/.test(text) ? text.replace(/\\B(?=(\\d{3})+(?!\\d))/g, ',') : text;
+      };
+      const sideName = (side) => {
+        const value = String(side);
+        const key = value.toLowerCase().replaceAll('_', '-');
+        if (key === 'bch-to-token' || key === 'buy') return 'BCH to Token';
+        if (key === 'token-to-bch' || key === 'sell') return 'Token to BCH';
+        return value;
+      };
       const refresh = async () => {
         const response = await fetch('/api/state');
         const data = await response.json();
@@ -150,25 +167,30 @@ const renderPage = (): string => `<!doctype html>
           metric('Pool BCH sats', activePool ? activePool.valueSats : 'not created'),
           metric('Pool tokens', activePool ? activePool.tokenData.amount : 'not created')
         ].join('');
+        trades.innerHTML = data.trades.length === 0
+          ? '<p>No decoded AMM trades found yet.</p>'
+          : '<table><thead><tr><th>Height</th><th>Side</th><th>Category</th><th>Input Amount</th><th>Output Amount</th><th>Tx</th></tr></thead><tbody>' +
+            data.trades.map((trade) => '<tr><td>' + trade.height + '</td><td>' + sideName(trade.side) + '</td><td><code>' + trade.category + '</code></td><td>' + amount(trade.inputAmount) + '</td><td>' + amount(trade.outputAmount) + '</td><td>' + txLink(trade.txid) + '</td></tr>').join('') +
+            '</tbody></table>';
         const tokenProofs = data.tokenProofs.length === 0
           ? '<p>No real CashToken outputs found yet.</p>'
           : '<table><thead><tr><th>Height</th><th>Category</th><th>Amount</th><th>Tx</th></tr></thead><tbody>' +
-            data.tokenProofs.map((proof) => '<tr><td>' + proof.height + '</td><td><code>' + proof.tokenData.category + '</code></td><td>' + (proof.tokenData.amount || 'NFT') + '</td><td><a href="/tx/' + proof.txid + '" target="_blank">' + proof.txid.slice(0, 12) + '...</a></td></tr>').join('') +
+            data.tokenProofs.map((proof) => '<tr><td>' + proof.height + '</td><td><code>' + proof.tokenData.category + '</code></td><td>' + (proof.tokenData.amount || 'NFT') + '</td><td>' + txLink(proof.txid) + '</td></tr>').join('') +
             '</tbody></table>';
         const vmProofs = data.vmProofs.length === 0
           ? '<p>No CashVM contract spends found yet.</p>'
           : '<table><thead><tr><th>Height</th><th>Redeem Script</th><th>Contract Tx</th><th>Spend Tx</th></tr></thead><tbody>' +
-            data.vmProofs.map((proof) => '<tr><td>' + proof.height + '</td><td><code>' + proof.redeemScript + '</code></td><td><a href="/tx/' + proof.contractTxid + '" target="_blank">' + proof.contractTxid.slice(0, 12) + '...</a></td><td><a href="/tx/' + proof.spendTxid + '" target="_blank">' + proof.spendTxid.slice(0, 12) + '...</a></td></tr>').join('') +
+            data.vmProofs.map((proof) => '<tr><td>' + proof.height + '</td><td><code>' + proof.redeemScript + '</code></td><td>' + txLink(proof.contractTxid) + '</td><td>' + txLink(proof.spendTxid) + '</td></tr>').join('') +
             '</tbody></table>';
         const pools = data.pools.length === 0
           ? '<p>No AMM pool UTXOs found yet.</p>'
           : '<table><thead><tr><th>Height</th><th>Active</th><th>BCH Sats</th><th>Tokens</th><th>Tx</th></tr></thead><tbody>' +
-            data.pools.map((pool) => '<tr><td>' + pool.height + '</td><td>' + pool.active + '</td><td>' + pool.valueSats + '</td><td>' + (pool.tokenData.amount || '0') + '</td><td><a href="/tx/' + pool.txid + '" target="_blank">' + pool.txid.slice(0, 12) + '...</a></td></tr>').join('') +
+            data.pools.map((pool) => '<tr><td>' + pool.height + '</td><td>' + pool.active + '</td><td>' + pool.valueSats + '</td><td>' + (pool.tokenData.amount || '0') + '</td><td>' + txLink(pool.txid) + '</td></tr>').join('') +
             '</tbody></table>';
         const launchEvents = data.history.length === 0
           ? '<p>No launch events mined yet.</p>'
           : '<table><thead><tr><th>Height</th><th>Action</th><th>Tx</th><th>Status After</th></tr></thead><tbody>' +
-            data.history.map((entry) => '<tr><td>' + entry.height + '</td><td>' + entry.kind + '</td><td><a href="/tx/' + entry.txid + '" target="_blank">' + entry.txid.slice(0, 12) + '...</a></td><td>' + (entry.statusAfter || '') + '</td></tr>').join('') +
+            data.history.map((entry) => '<tr><td>' + entry.height + '</td><td>' + entry.kind + '</td><td>' + txLink(entry.txid) + '</td><td>' + (entry.statusAfter || '') + '</td></tr>').join('') +
             '</tbody></table>';
         events.innerHTML = '<h3>Real CashToken Outputs</h3>' + tokenProofs + '<h3>CashVM AMM Pool UTXOs</h3>' + pools + '<h3>CashVM Contract Spends</h3>' + vmProofs + '<h3>Launch Events</h3>' + launchEvents;
       };
@@ -213,6 +235,14 @@ const serializeSnapshot = async () => {
         },
     pools: snapshot.pools,
     tokenProofs: snapshot.tokenProofs,
+    trades: snapshot.trades.map((trade) => ({
+      category: trade.category,
+      height: trade.height,
+      inputAmount: trade.inputAmount,
+      outputAmount: trade.outputAmount,
+      side: trade.side,
+      txid: trade.txid
+    })),
     vmProofs: snapshot.vmProofs,
     wallet: snapshot.wallet
   };

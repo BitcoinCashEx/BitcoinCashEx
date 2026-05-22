@@ -6,7 +6,9 @@ import {
   demoAmmTokenOutputDustSats,
   demoAmmWalletChangeDustSats,
   encodeDemoAmmPoolMarkerText,
+  encodeDemoAmmTradeMarkerText,
   parseDemoAmmPoolMarkerScript,
+  parseDemoAmmTradeMarkerScript,
   quoteDemoAmmBuy,
   quoteDemoAmmSell,
   requireDemoAmmPoolTokenData,
@@ -106,6 +108,7 @@ export interface DemoChainSnapshot {
   readonly pools: readonly DemoAmmPoolUtxo[];
   readonly replay: ReturnType<typeof replayDemoEvents>;
   readonly tokenProofs: readonly DemoTokenProof[];
+  readonly trades: readonly DemoAmmTradeProof[];
   readonly vmProofs: readonly DemoCashVmProof[];
   readonly wallet: {
     readonly address: string;
@@ -120,6 +123,15 @@ export interface DemoTokenProof {
   readonly txid: string;
   readonly valueSats: string;
   readonly vout: number;
+}
+
+export interface DemoAmmTradeProof {
+  readonly category: string;
+  readonly height: number;
+  readonly inputAmount: string;
+  readonly outputAmount: string;
+  readonly side: "BCH_TO_TOKEN" | "TOKEN_TO_BCH";
+  readonly txid: string;
 }
 
 export interface DemoCashVmProof {
@@ -247,6 +259,31 @@ export const scanDemoAmmPools = async (): Promise<readonly DemoAmmPoolUtxo[]> =>
   return pools;
 };
 
+export const scanDemoAmmTrades = async (): Promise<readonly DemoAmmTradeProof[]> => {
+  const blockCount = await rpc.call<number>("getblockcount");
+  const trades: DemoAmmTradeProof[] = [];
+
+  for (let height = 1; height <= blockCount; height += 1) {
+    const block = await getBlockByHeight(height);
+    for (const tx of block.tx) {
+      for (const output of tx.vout) {
+        const marker = parseDemoAmmTradeMarkerScript(output.scriptPubKey.hex);
+        if (marker === undefined) continue;
+        trades.push({
+          category: marker.category,
+          height,
+          inputAmount: marker.inputAmount.toString(),
+          outputAmount: marker.outputAmount.toString(),
+          side: marker.side,
+          txid: tx.txid
+        });
+      }
+    }
+  }
+
+  return trades;
+};
+
 export const scanDemoTokenProofs = async (): Promise<readonly DemoTokenProof[]> => {
   const blockCount = await rpc.call<number>("getblockcount");
   const proofs: DemoTokenProof[] = [];
@@ -330,11 +367,12 @@ export const scanDemoEvents = async (): Promise<readonly DemoChainEvent[]> => {
 };
 
 export const getDemoSnapshot = async (): Promise<DemoChainSnapshot> => {
-  const [blockCount, events, pools, tokenProofs, vmProofs, utxos] = await Promise.all([
+  const [blockCount, events, pools, tokenProofs, trades, vmProofs, utxos] = await Promise.all([
     rpc.call<number>("getblockcount"),
     scanDemoEvents(),
     scanDemoAmmPools(),
     scanDemoTokenProofs(),
+    scanDemoAmmTrades(),
     scanDemoCashVmProofs(),
     findSpendableUtxos()
   ]);
@@ -345,6 +383,7 @@ export const getDemoSnapshot = async (): Promise<DemoChainSnapshot> => {
     pools,
     replay: replayDemoEvents(events),
     tokenProofs,
+    trades,
     vmProofs,
     wallet: {
       address: demoAddress,
@@ -487,7 +526,16 @@ export const swapDemoAmmPool = async (
         }
       },
       { [demoAddress]: satsToBch(walletChangeSats) },
-      { data: eventTextToHex(encodeDemoAmmPoolMarkerText(pool.tokenData.category)) }
+      {
+        data: eventTextToHex(
+          encodeDemoAmmTradeMarkerText(
+            "BCH_TO_TOKEN",
+            pool.tokenData.category,
+            bchAmountInSats,
+            quote.outputAmount
+          )
+        )
+      }
     ]
   ]);
   const txid = await signAndSubmitMany(raw, [
@@ -582,7 +630,11 @@ export const sellDemoAmmTokens = async (
     outputs.push({ [demoUserAddress]: satsToBch(userBchOutSats) });
   }
 
-  outputs.push({ data: eventTextToHex(encodeDemoAmmPoolMarkerText(pool.tokenData.category)) });
+  outputs.push({
+    data: eventTextToHex(
+      encodeDemoAmmTradeMarkerText("TOKEN_TO_BCH", pool.tokenData.category, tokenAmountIn, userBchOutSats)
+    )
+  });
 
   const raw = await rpc.call<string>("createrawtransaction", [
     [

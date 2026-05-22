@@ -59,12 +59,16 @@ The current implementation uses BCHN RPC directly, without Fulcrum:
   check for the predefined backend operator key.
 - `/api/swap` spends the active pool plus a backend BCH UTXO, recreates the
   pool with updated reserves, and pays CashTokens to the predefined user
-  address.
+  address. The swap transaction carries a decoded
+  `BCHEXAMM1|TRADE|BCH_TO_TOKEN|...` marker.
 - `/api/swap-token-to-bch` spends the active pool plus the predefined user's
   CashToken UTXO, recreates the pool with updated reserves, and pays BCH plus
-  token change to that user address.
-- `/api/state` scans mined blocks, `tokenData`, and live UTXO status to show the
-  current active pool.
+  token change to that user address. The reverse swap transaction carries a
+  decoded `BCHEXAMM1|TRADE|TOKEN_TO_BCH|...` marker.
+- `/api/state` scans mined blocks, `tokenData`, live UTXO status, and decoded
+  AMM trade history to show the current active pool and swap rows.
+- Decoded trade rows use `height`, `txid`, `side`, `category`, `inputAmount`,
+  and `outputAmount`, and the demo UI links each `txid` to `/tx/<txid>`.
 
 The current CashVM script gates custody by backend signature. The next hardening
 milestone is a covenant template that validates token category continuity,

@@ -72,19 +72,26 @@ The local demo now proves the first on-chain AMM path on BCHN regtest:
   backend-controlled user address.
 - `/api/state` distinguishes inactive spent pool UTXOs from the current active
   pool UTXO by using BCHN `gettxout`.
+- `/api/state` exposes decoded AMM trade history as `trades`, with `height`,
+  `txid`, `side`, `category`, `inputAmount`, and `outputAmount` for each swap.
+- AMM swap transactions now emit `BCHEXAMM1|TRADE|...` OP_RETURN markers, and
+  pool discovery treats those markers as the token category binding for the
+  recreated pool UTXO.
 
 Current local proof values:
 
 - Initial pool transaction:
   `6d21a365013c10636de2f32635ab4a087f4d0788e695b9768e1192bf750fcff8`.
-- Swap transaction:
-  `1ee2ae9cdc69c563f68d0007c2a93d8896b970b8a7324cebca0e0dea1cfa8a29`.
-- Reverse swap transaction:
-  `beb1fb6d5d33d8e3acbc0a494371f1ee2b287567ddaca84eb335b5b167099144`.
-- Active pool reserves after the reverse swap: `5000719128` sats and `899871`
+- Latest marker-backed BCH-to-token swap:
+  `49dafcf8e528fc9353bd59400f28f2d842f2ba99f2534c5589b49c49e73e4e35` at
+  height `127`.
+- Latest marker-backed token-to-BCH swap:
+  `5f5e03f5cc7cb20e73213309781e300fb6e75104d4a4c48266803848bb207fe0` at
+  height `128`.
+- Active pool reserves after the latest reverse swap: `5001441176` sats and `899742`
   CashTokens.
 - Backend user payout after the BCH-to-token swap: `179` CashTokens.
-- Backend user payout after the token-to-BCH swap: `275872` sats, with `129`
+- Backend user payout after the token-to-BCH swap: `275952` sats, with `129`
   CashTokens returned as change.
 - Operator-gated CashVM proof spend:
   `e226c354e2dffefebd85762d64f34a453683489e8407800fe59e8411f65cd3b1`.
@@ -118,13 +125,17 @@ covenant that enforces the AMM reserve transition inside CashVM.
 - The UI can also submit a backend-controlled token to BCH swap by spending the
   predefined user's CashToken UTXO.
 - `/api/state` scans BCHN blocks and reconstructs launch state from chain
-  events, token outputs, CashVM pool UTXOs, and CashVM spend proofs.
-- `/tx/<txid>` acts as a local transaction explorer for the mined event.
+  events, token outputs, CashVM pool UTXOs, decoded AMM trades, and CashVM spend
+  proofs.
+- The UI renders an `AMM Trades` table with human-readable swap sides,
+  input/output amounts, block height, token category, and local `/tx/<txid>`
+  explorer links.
+- `/tx/<txid>` acts as a local transaction explorer for the mined transaction.
 
 This proves backend-controlled local-chain execution, real CashToken genesis,
 operator-gated CashVM contract spends, CashVM-held AMM pool UTXOs, backend
-swaps in both AMM directions, and chain-derived UI state. It still does not
-prove a production CashVM covenant enforcing AMM reserve math.
+swaps in both AMM directions, decoded trade history, and chain-derived UI state.
+It still does not prove a production CashVM covenant enforcing AMM reserve math.
 
 ## Current Validation
 
@@ -141,7 +152,7 @@ npm run node:health
 Current local result:
 
 - 14 test files.
-- 45 unit tests.
+- 49 unit tests.
 - TypeScript strict mode passes.
 - Build passes.
 - npm audit reports 0 vulnerabilities.
