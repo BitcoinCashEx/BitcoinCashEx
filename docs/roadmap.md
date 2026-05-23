@@ -36,6 +36,7 @@
 - [x] Add launch-to-AMM proof with graduation amounts and pool funding
   provenance.
 - [x] Add CashToken genesis source provenance to launch-to-AMM receipts.
+- [x] Add token-genesis-before-binding order verification to launch receipts.
 - [ ] Add covenant-enforced regtest CashToken lifecycle tests.
 
 ## Phase 3: Indexing And State

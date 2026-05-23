@@ -63,7 +63,9 @@ decoded trade marker, reserve-transition audit, and P2SH redeem-script spend
 audit for that exact transaction. The launch-to-AMM receipt also exposes the
 expected and actual token-genesis and pool-funding outpoints so the UI proves
 the CashToken category was created from its pre-genesis output and the AMM pool
-was seeded from the bound CashToken genesis output.
+was seeded from the bound CashToken genesis output. It also shows the token
+binding order check proving token genesis was mined before the launch binding
+event.
 
 Stop it when finished:
 

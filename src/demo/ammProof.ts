@@ -122,6 +122,8 @@ export interface DemoLaunchAmmProofPackReceipt {
   readonly tokenBindingHeight?: number;
   readonly tokenBindingTxid?: string;
   readonly tokenCategory?: string;
+  readonly tokenGenesisHeight?: number;
+  readonly tokenGenesisMinedBeforeBinding?: boolean;
   readonly tokenGenesisSourceConfirmed?: boolean;
   readonly tokenGenesisSourceOutpoint?: string;
   readonly tokenGenesisTxid?: string;
@@ -480,6 +482,11 @@ export const buildDemoLaunchAmmProofPackReceipt = ({
   if (tokenCategory !== undefined && tokenBinding?.tokenGenesisTxid !== undefined && matchingTokenProof === undefined) {
     problems.push("Bound CashToken genesis output was not found on chain.");
   }
+  const tokenGenesisMinedBeforeBinding =
+    matchingTokenProof === undefined || tokenBinding === undefined ? undefined : matchingTokenProof.height < tokenBinding.height;
+  if (tokenGenesisMinedBeforeBinding === false) {
+    problems.push("Launch CashToken binding was not mined after the bound CashToken genesis output.");
+  }
   const expectedTokenGenesisOutpoint = tokenCategory === undefined ? undefined : `${tokenCategory}:0`;
   const tokenGenesisSourceOutpoint =
     expectedTokenGenesisOutpoint === undefined || matchingTokenProof === undefined
@@ -571,6 +578,8 @@ export const buildDemoLaunchAmmProofPackReceipt = ({
     ...(matchingTokenProof === undefined
       ? {}
       : {
+          tokenGenesisHeight: matchingTokenProof.height,
+          ...(tokenGenesisMinedBeforeBinding === undefined ? {} : { tokenGenesisMinedBeforeBinding }),
           tokenGenesisSourceConfirmed: tokenGenesisSourceOutpoint !== undefined,
           ...(tokenGenesisSourceOutpoint === undefined ? {} : { tokenGenesisSourceOutpoint })
         }),

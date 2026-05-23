@@ -397,6 +397,8 @@ describe("demo AMM pool proof helpers", () => {
       status: "verified",
       tokenBindingTxid: "03".repeat(32),
       tokenCategory: category,
+      tokenGenesisHeight: 10,
+      tokenGenesisMinedBeforeBinding: true,
       tokenGenesisSourceConfirmed: true,
       tokenGenesisSourceOutpoint: `${category}:0`,
       tokenGenesisTxid: "02".repeat(32)
@@ -477,7 +479,7 @@ describe("demo AMM pool proof helpers", () => {
         ],
         tokenProofs: [
           {
-            height: 12,
+            height: 10,
             inputOutpoints: [`${category}:0`],
             tokenData: { amount: "900000", category },
             txid: "02".repeat(32)
@@ -547,7 +549,7 @@ describe("demo AMM pool proof helpers", () => {
         ],
         tokenProofs: [
           {
-            height: 12,
+            height: 10,
             inputOutpoints: [`${"ff".repeat(32)}:0`],
             tokenData: { amount: "900000", category },
             txid: "02".repeat(32)
@@ -579,6 +581,76 @@ describe("demo AMM pool proof helpers", () => {
       problems: ["Bound CashToken genesis transaction did not spend the declared token category pre-genesis output."],
       status: "failed",
       tokenGenesisSourceConfirmed: false
+    });
+  });
+
+  it("fails launch-to-AMM proof packs when the token binding is mined before token genesis", () => {
+    const category = "aa".repeat(32);
+
+    expect(
+      buildDemoLaunchAmmProofPackReceipt({
+        history: [
+          { height: 10, kind: "CREATE", statusAfter: "active", txid: "01".repeat(32) },
+          {
+            graduationBchAmountSats: "5000000000",
+            graduationTokenAmount: "900000",
+            height: 11,
+            kind: "GRADUATE",
+            statusAfter: "graduated",
+            txid: "04".repeat(32)
+          },
+          {
+            category,
+            height: 12,
+            kind: "TOKEN",
+            statusAfter: "active",
+            tokenGenesisTxid: "02".repeat(32),
+            txid: "03".repeat(32)
+          }
+        ],
+        pools: [
+          {
+            ...pool,
+            height: 13,
+            inputOutpoints: [`${"02".repeat(32)}:0`],
+            tokenData: { ...pool.tokenData, category },
+            txid: "05".repeat(32)
+          }
+        ],
+        tokenProofs: [
+          {
+            height: 12,
+            inputOutpoints: [`${category}:0`],
+            tokenData: { amount: "900000", category },
+            txid: "02".repeat(32)
+          }
+        ],
+        transitionAudits: [
+          {
+            category,
+            height: 14,
+            previousPoolTxid: "05".repeat(32),
+            problems: [],
+            side: "BCH_TO_TOKEN",
+            status: "verified",
+            txid: "06".repeat(32)
+          },
+          {
+            category,
+            height: 15,
+            previousPoolTxid: "06".repeat(32),
+            problems: [],
+            side: "TOKEN_TO_BCH",
+            status: "verified",
+            txid: "07".repeat(32)
+          }
+        ]
+      })
+    ).toMatchObject({
+      problems: ["Launch CashToken binding was not mined after the bound CashToken genesis output."],
+      status: "failed",
+      tokenGenesisHeight: 12,
+      tokenGenesisMinedBeforeBinding: false
     });
   });
 

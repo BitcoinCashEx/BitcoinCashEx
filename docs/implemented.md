@@ -63,6 +63,8 @@ The local demo now proves the first on-chain AMM path on BCHN regtest:
 - The launch receipt verifies the token genesis transaction spent
   `<category>:0`, proving the bound CashToken category came from its
   pre-genesis outpoint.
+- The launch receipt also verifies the token genesis was mined before the TOKEN
+  binding event, and that the binding was mined before the AMM migration pool.
 - The backend moves the bound token genesis output into the CashVM P2SH address
   as the AMM pool UTXO, and the receipt checks the pool input outpoint.
 - The pool transaction includes a same-transaction `BCHEXAMM1|<category>`
@@ -106,11 +108,11 @@ The local demo now proves the first on-chain AMM path on BCHN regtest:
   is graduated, mines a TOKEN binding event for a real CashToken, creates the
   category-specific CashVM AMM pool with the exact launch graduation BCH/token
   amounts, proves the token genesis input spent `<category>:0`, proves the pool
-  input spent the bound token genesis output, mines both AMM swap directions,
-  and returns only after
+  input spent the bound token genesis output, proves the token genesis was mined
+  before the binding event, mines both AMM swap directions, and returns only after
   `/api/state.launchAmmProofPack` verifies the launch, token, migration pool,
-  token source outpoint, pool funding outpoint, AMM audit, and CashVM spend
-  linkage.
+  token source outpoint, token binding order, pool funding outpoint, AMM audit,
+  and CashVM spend linkage.
 - `/tx/<swap-txid>` includes `ammTrade` and `ammTransitionAudit.cashVmSpend`,
   making each local explorer link a self-contained proof for that swap
   transaction, including operator redeem-script confirmation.
@@ -130,6 +132,8 @@ Current local proof values:
 - Latest launch-bound token genesis:
   `470681c0d8e66907ec7952c36627d37d14d3387d59c1dfbbdf4f43fbb00744c0` at
   height `164`.
+- Latest launch-bound token binding order: token genesis height `164`, TOKEN
+  binding height `165`.
 - Latest launch-bound CashVM pool transaction:
   `7efef1830d90ea375c7586a372ed17f66aa6b4b1317f4ed6b956706eb11b1046` at
   height `166`.
@@ -191,7 +195,7 @@ covenant that enforces the AMM reserve transition inside CashVM.
 - `/api/state.launchAmmProofPack` verifies the launch CREATE/GRADUATE events,
   TOKEN binding event, real token genesis output, CashVM pool, AMM proof pair,
   migration seed amounts, token genesis source outpoint, pool funding outpoint,
-  and CashVM P2SH spend audits.
+  token binding order, and CashVM P2SH spend audits.
 - The UI renders an `AMM Trades` table with human-readable swap sides,
   input/output amounts, block height, token category, and local `/tx/<txid>`
   explorer links.
@@ -212,9 +216,9 @@ This proves backend-controlled local-chain execution, real CashToken genesis,
 operator-gated CashVM contract spends, CashVM-held AMM pool UTXOs, backend
 swaps in both AMM directions, decoded trade history, audited pool transitions,
 audited CashVM pool spends, on-chain launch/token binding, graduation-sized AMM
-migration, token genesis provenance, pool funding provenance, and chain-derived
-UI state. It still does not prove a production CashVM covenant enforcing launch
-or AMM reserve math.
+migration, token genesis provenance, token binding order, pool funding
+provenance, and chain-derived UI state. It still does not prove a production
+CashVM covenant enforcing launch or AMM reserve math.
 
 ## Current Validation
 
