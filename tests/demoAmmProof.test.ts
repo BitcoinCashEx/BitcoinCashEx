@@ -358,6 +358,7 @@ describe("demo AMM pool proof helpers", () => {
         tokenProofs: [
           {
             height: 10,
+            inputOutpoints: [`${category}:0`],
             tokenData: { amount: "900000", category },
             txid: "02".repeat(32)
           }
@@ -396,6 +397,8 @@ describe("demo AMM pool proof helpers", () => {
       status: "verified",
       tokenBindingTxid: "03".repeat(32),
       tokenCategory: category,
+      tokenGenesisSourceConfirmed: true,
+      tokenGenesisSourceOutpoint: `${category}:0`,
       tokenGenesisTxid: "02".repeat(32)
     });
   });
@@ -475,6 +478,7 @@ describe("demo AMM pool proof helpers", () => {
         tokenProofs: [
           {
             height: 12,
+            inputOutpoints: [`${category}:0`],
             tokenData: { amount: "900000", category },
             txid: "02".repeat(32)
           }
@@ -505,6 +509,76 @@ describe("demo AMM pool proof helpers", () => {
       poolFundingConfirmed: false,
       problems: ["Launch AMM pool did not spend the bound CashToken genesis output."],
       status: "failed"
+    });
+  });
+
+  it("fails launch-to-AMM proof packs when the token genesis does not spend the category pre-genesis output", () => {
+    const category = "aa".repeat(32);
+
+    expect(
+      buildDemoLaunchAmmProofPackReceipt({
+        history: [
+          { height: 10, kind: "CREATE", statusAfter: "active", txid: "01".repeat(32) },
+          {
+            graduationBchAmountSats: "5000000000",
+            graduationTokenAmount: "900000",
+            height: 11,
+            kind: "GRADUATE",
+            statusAfter: "graduated",
+            txid: "04".repeat(32)
+          },
+          {
+            category,
+            height: 12,
+            kind: "TOKEN",
+            statusAfter: "active",
+            tokenGenesisTxid: "02".repeat(32),
+            txid: "03".repeat(32)
+          }
+        ],
+        pools: [
+          {
+            ...pool,
+            height: 13,
+            inputOutpoints: [`${"02".repeat(32)}:0`],
+            tokenData: { ...pool.tokenData, category },
+            txid: "05".repeat(32)
+          }
+        ],
+        tokenProofs: [
+          {
+            height: 12,
+            inputOutpoints: [`${"ff".repeat(32)}:0`],
+            tokenData: { amount: "900000", category },
+            txid: "02".repeat(32)
+          }
+        ],
+        transitionAudits: [
+          {
+            category,
+            height: 14,
+            previousPoolTxid: "05".repeat(32),
+            problems: [],
+            side: "BCH_TO_TOKEN",
+            status: "verified",
+            txid: "06".repeat(32)
+          },
+          {
+            category,
+            height: 15,
+            previousPoolTxid: "06".repeat(32),
+            problems: [],
+            side: "TOKEN_TO_BCH",
+            status: "verified",
+            txid: "07".repeat(32)
+          }
+        ]
+      })
+    ).toMatchObject({
+      expectedTokenGenesisOutpoint: `${category}:0`,
+      problems: ["Bound CashToken genesis transaction did not spend the declared token category pre-genesis output."],
+      status: "failed",
+      tokenGenesisSourceConfirmed: false
     });
   });
 

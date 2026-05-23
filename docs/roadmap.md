@@ -35,6 +35,7 @@
 - [x] Add BCHN regtest CashToken mint, AMM pool, and swap proof.
 - [x] Add launch-to-AMM proof with graduation amounts and pool funding
   provenance.
+- [x] Add CashToken genesis source provenance to launch-to-AMM receipts.
 - [ ] Add covenant-enforced regtest CashToken lifecycle tests.
 
 ## Phase 3: Indexing And State

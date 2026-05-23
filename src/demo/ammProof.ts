@@ -105,6 +105,7 @@ export interface DemoLaunchAmmProofPackReceipt {
   readonly ammProofPack: DemoAmmProofPackReceipt;
   readonly createTxid?: string;
   readonly endHeight?: number;
+  readonly expectedTokenGenesisOutpoint?: string;
   readonly graduationBchAmountSats?: string;
   readonly graduationHeight?: number;
   readonly graduationTokenAmount?: string;
@@ -121,6 +122,8 @@ export interface DemoLaunchAmmProofPackReceipt {
   readonly tokenBindingHeight?: number;
   readonly tokenBindingTxid?: string;
   readonly tokenCategory?: string;
+  readonly tokenGenesisSourceConfirmed?: boolean;
+  readonly tokenGenesisSourceOutpoint?: string;
   readonly tokenGenesisTxid?: string;
 }
 
@@ -432,6 +435,7 @@ export const buildDemoLaunchAmmProofPackReceipt = ({
   readonly pools: readonly DemoAmmPoolUtxo[];
   readonly tokenProofs: readonly {
     readonly height: number;
+    readonly inputOutpoints: readonly string[];
     readonly tokenData: DemoTokenData;
     readonly txid: string;
   }[];
@@ -475,6 +479,14 @@ export const buildDemoLaunchAmmProofPackReceipt = ({
         );
   if (tokenCategory !== undefined && tokenBinding?.tokenGenesisTxid !== undefined && matchingTokenProof === undefined) {
     problems.push("Bound CashToken genesis output was not found on chain.");
+  }
+  const expectedTokenGenesisOutpoint = tokenCategory === undefined ? undefined : `${tokenCategory}:0`;
+  const tokenGenesisSourceOutpoint =
+    expectedTokenGenesisOutpoint === undefined || matchingTokenProof === undefined
+      ? undefined
+      : matchingTokenProof.inputOutpoints.find((outpoint) => outpoint.toLowerCase() === expectedTokenGenesisOutpoint);
+  if (matchingTokenProof !== undefined && expectedTokenGenesisOutpoint !== undefined && tokenGenesisSourceOutpoint === undefined) {
+    problems.push("Bound CashToken genesis transaction did not spend the declared token category pre-genesis output.");
   }
 
   const firstPool =
@@ -535,6 +547,7 @@ export const buildDemoLaunchAmmProofPackReceipt = ({
     ammProofPack,
     ...(create === undefined ? {} : { createTxid: create.txid }),
     ...(ammProofPack.endHeight === undefined ? {} : { endHeight: ammProofPack.endHeight }),
+    ...(expectedTokenGenesisOutpoint === undefined ? {} : { expectedTokenGenesisOutpoint }),
     ...(graduation?.graduationBchAmountSats === undefined
       ? {}
       : { graduationBchAmountSats: graduation.graduationBchAmountSats }),
@@ -555,6 +568,12 @@ export const buildDemoLaunchAmmProofPackReceipt = ({
     status: problems.length === 0 ? "verified" : missing ? "missing" : "failed",
     ...(tokenBinding === undefined ? {} : { tokenBindingHeight: tokenBinding.height, tokenBindingTxid: tokenBinding.txid }),
     ...(tokenCategory === undefined ? {} : { tokenCategory }),
+    ...(matchingTokenProof === undefined
+      ? {}
+      : {
+          tokenGenesisSourceConfirmed: tokenGenesisSourceOutpoint !== undefined,
+          ...(tokenGenesisSourceOutpoint === undefined ? {} : { tokenGenesisSourceOutpoint })
+        }),
     ...(tokenBinding?.tokenGenesisTxid === undefined ? {} : { tokenGenesisTxid: tokenBinding.tokenGenesisTxid })
   };
 };

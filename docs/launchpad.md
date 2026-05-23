@@ -12,7 +12,8 @@ BitcoinCashEx currently implements off-chain deterministic primitives:
   CashVM P2SH AMM pool UTXO, submit a backend-controlled BCH to token swap, and
   submit a token to BCH reverse swap.
 - A one-click launch-to-AMM proof that checks the AMM pool was seeded by
-  spending the bound CashToken genesis output.
+  spending the bound CashToken genesis output and that the bound token genesis
+  spent the category pre-genesis output.
 
 This is not a full Uniswap implementation yet. It is now a working local
 transaction proof for AMM pool custody and swap state transitions. The current
@@ -144,9 +145,9 @@ There is now also a local event-backed proof UI:
   reserve audits and CashVM P2SH spend audits.
 - Click run launch to AMM proof to bind the launch to a mined CashToken
   category, create the CashVM pool for that category using the launch
-  graduation BCH/token amounts, prove the pool spent the bound token genesis
-  output, execute both AMM swap directions, and verify the composed launch/AMM
-  receipt from chain data.
+  graduation BCH/token amounts, prove the token genesis spent `<category>:0`,
+  prove the pool spent the bound token genesis output, execute both AMM swap
+  directions, and verify the composed launch/AMM receipt from chain data.
 - The page reconstructs state from mined OP_RETURN event transactions, renders
   `Launch To AMM Proof`, `Latest Proof Pack`, `AMM Trades`, and `AMM Reserve
   Audit` tables from `/api/state`, and links trade, event, token, and contract

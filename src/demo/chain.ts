@@ -138,6 +138,7 @@ export interface DemoChainSnapshot {
 
 export interface DemoTokenProof {
   readonly height: number;
+  readonly inputOutpoints: readonly string[];
   readonly tokenData: TokenData;
   readonly txid: string;
   readonly valueSats: string;
@@ -430,6 +431,9 @@ export const scanDemoTokenProofs = async (): Promise<readonly DemoTokenProof[]> 
         summarizeDemoTokenData(output.tokenData);
         proofs.push({
           height,
+          inputOutpoints: tx.vin.flatMap((input) =>
+            input.txid === undefined || input.vout === undefined ? [] : [`${input.txid}:${input.vout}`]
+          ),
           tokenData: output.tokenData,
           txid: tx.txid,
           valueSats: bchToSats(output.value).toString(),
