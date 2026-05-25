@@ -24,7 +24,9 @@
 - BCHN regtest launch-to-AMM proof that binds a pump-style launch to a real
   CashToken category with an on-chain TOKEN event, migrates the launch
   graduation BCH/token amounts into a CashVM AMM pool, proves the pool spent the
-  bound token genesis output, then proves AMM swaps for that category.
+  bound token genesis output, proves the migration transaction conserves the
+  bound genesis token amount, rejects NFT-bearing launch or migration token
+  outputs, then proves AMM swaps for that category.
 - Virtual-reserve bonding curve buy/sell quote math.
 - Liquidity initialization with locked minimum liquidity.
 - Proportional add-liquidity quote with excess-side refunds.
@@ -63,10 +65,20 @@ The local demo now proves the first on-chain AMM path on BCHN regtest:
 - The launch receipt verifies the token genesis transaction spent
   `<category>:0`, proving the bound CashToken category came from its
   pre-genesis outpoint.
+- The launch receipt requires the bound token genesis output to be vout `0`, so
+  the pool funding check targets the exact `tokenGenesisTxid:0` output instead
+  of a different same-transaction token output.
+- The launch receipt rejects NFT authority on the bound genesis output because
+  the launch proof is for fungible-only supply.
 - The launch receipt also verifies the token genesis was mined before the TOKEN
   binding event, and that the binding was mined before the AMM migration pool.
 - The backend moves the bound token genesis output into the CashVM P2SH address
   as the AMM pool UTXO, and the receipt checks the pool input outpoint.
+- The launch receipt sums all same-transaction token outputs for the bound
+  category and checks they conserve the bound token genesis amount across the
+  first AMM pool output plus token change.
+- The same migration scan rejects same-category NFT outputs, including
+  NFT-only outputs with no fungible amount.
 - The pool transaction includes a same-transaction `BCHEXAMM1|<category>`
   OP_RETURN marker, and scanner logic ignores token UTXOs without that marker.
 - AMM pool reserves are rejected if they carry an NFT authority; the current
@@ -109,9 +121,11 @@ The local demo now proves the first on-chain AMM path on BCHN regtest:
   category-specific CashVM AMM pool with the exact launch graduation BCH/token
   amounts, proves the token genesis input spent `<category>:0`, proves the pool
   input spent the bound token genesis output, proves the token genesis was mined
-  before the binding event, mines both AMM swap directions, and returns only after
-  `/api/state.launchAmmProofPack` verifies the launch, token, migration pool,
-  token source outpoint, token binding order, pool funding outpoint, AMM audit,
+  before the binding event, proves migration token conservation, rejects
+  NFT-bearing launch or migration token outputs, mines both AMM swap directions,
+  and returns only after `/api/state.launchAmmProofPack` verifies the launch,
+  token, migration pool, token source outpoint, token output position, token
+  binding order, pool funding outpoint, migration token conservation, AMM audit,
   and CashVM spend linkage.
 - `/tx/<swap-txid>` includes `ammTrade` and `ammTransitionAudit.cashVmSpend`,
   making each local explorer link a self-contained proof for that swap
@@ -141,6 +155,10 @@ Current local proof values:
   `470681c0d8e66907ec7952c36627d37d14d3387d59c1dfbbdf4f43fbb00744c0:0`,
   verified as the pool input.
 - Latest migration seed amounts: `328119` sats and `133581` CashTokens.
+- Latest migration token conservation: genesis amount `900000`, migration
+  outputs `900000`, expected change `766419`, actual change `766419`.
+- Latest launch token hardening: bound genesis output vout `0`; genesis and
+  migration token outputs fungible-only.
 - Latest marker-backed BCH-to-token swap:
   `e131a1e1be0c941eca5bf23ee51827d17c434b7b6c30bf8c44819c04d9022d4e` at
   height `167`.
@@ -188,14 +206,16 @@ covenant that enforces the AMM reserve transition inside CashVM.
 - The UI can run a composed launch-to-AMM proof pack that mines a TOKEN binding
   event, creates a CashVM pool for the bound token category with the launch
   graduation BCH/token amounts, proves the pool spent the bound token genesis
-  output, and verifies both AMM swap directions.
+  output, proves migration token conservation, rejects NFT-bearing launch or
+  migration token outputs, and verifies both AMM swap directions.
 - `/api/state` scans BCHN blocks and reconstructs launch state from chain
   events, token outputs, CashVM pool UTXOs, decoded AMM trades, and CashVM spend
   proofs.
 - `/api/state.launchAmmProofPack` verifies the launch CREATE/GRADUATE events,
   TOKEN binding event, real token genesis output, CashVM pool, AMM proof pair,
   migration seed amounts, token genesis source outpoint, pool funding outpoint,
-  token binding order, and CashVM P2SH spend audits.
+  token output position, token binding order, migration token conservation,
+  token fungibility, and CashVM P2SH spend audits.
 - The UI renders an `AMM Trades` table with human-readable swap sides,
   input/output amounts, block height, token category, and local `/tx/<txid>`
   explorer links.
@@ -206,7 +226,7 @@ covenant that enforces the AMM reserve transition inside CashVM.
   with the latest verified BCH-to-token and token-to-BCH explorer links.
 - The UI has a `Run Launch To AMM Proof` button and receipt with launch token
   binding, graduation amounts, migrated pool amounts, pool funding status, pool,
-  and AMM explorer links.
+  migration token conservation, and AMM explorer links.
 - `/tx/<txid>` acts as a local transaction explorer for the mined transaction;
   launch event pages include decoded event data, and AMM swap pages include a
   compact AMM/CashVM proof summary, decoded trade marker, reserve audit data,
@@ -217,8 +237,9 @@ operator-gated CashVM contract spends, CashVM-held AMM pool UTXOs, backend
 swaps in both AMM directions, decoded trade history, audited pool transitions,
 audited CashVM pool spends, on-chain launch/token binding, graduation-sized AMM
 migration, token genesis provenance, token binding order, pool funding
-provenance, and chain-derived UI state. It still does not prove a production
-CashVM covenant enforcing launch or AMM reserve math.
+provenance, migration token conservation, fungible-only token hardening, and
+chain-derived UI state. It still does not prove a production CashVM covenant
+enforcing launch or AMM reserve math.
 
 ## Current Validation
 
@@ -235,7 +256,7 @@ npm run node:health
 Current local result:
 
 - 14 test files.
-- 61 unit tests.
+- 69 unit tests.
 - TypeScript strict mode passes.
 - Build passes.
 - npm audit reports 0 vulnerabilities.

@@ -13,7 +13,9 @@ BitcoinCashEx currently implements off-chain deterministic primitives:
   submit a token to BCH reverse swap.
 - A one-click launch-to-AMM proof that checks the AMM pool was seeded by
   spending the bound CashToken genesis output and that the bound token genesis
-  spent the category pre-genesis output before the launch TOKEN binding.
+  spent the category pre-genesis output before the launch TOKEN binding. It
+  also checks migration token conservation across the first AMM pool output and
+  token change, and rejects NFT-bearing launch or migration token outputs.
 
 This is not a full Uniswap implementation yet. It is now a working local
 transaction proof for AMM pool custody and swap state transitions. The current
@@ -70,9 +72,15 @@ Reasons to start here:
 - VM integer limits: contract math must be kept within CashVM number limits or
   use carefully bounded scaling.
 - Token supply: CashToken fungible supply must fit consensus limits.
+- Token authority: launch and migration proofs must reject same-category NFT
+  authority so the demo cannot hide minting or mutable authority beside the
+  fungible launch supply.
 - MEV/order advantage: instant first-accepted transactions are simple but not
   always fair. Batch/tick settlement can reduce this.
-- Graduation: migration into AMM must be deterministic and permissionless.
+- Graduation: migration into AMM must be deterministic, permissionless, and
+  token-conserving: sold/user-held supply stays outside the AMM seed, while the
+  launch's remaining token supply becomes the initial AMM reserve plus any
+  explicit same-transaction token change.
 - Metadata: token identity, icon, and ticker should use registries without
   placing trust in mutable web metadata.
 
@@ -147,8 +155,9 @@ There is now also a local event-backed proof UI:
   category, create the CashVM pool for that category using the launch
   graduation BCH/token amounts, prove the token genesis spent `<category>:0`,
   prove token genesis was mined before the TOKEN binding, prove the pool spent
-  the bound token genesis output, execute both AMM swap directions, and verify
-  the composed launch/AMM receipt from chain data.
+  the bound token genesis output, prove migration token conservation, reject
+  NFT-bearing launch or migration token outputs, execute both AMM swap
+  directions, and verify the composed launch/AMM receipt from chain data.
 - The page reconstructs state from mined OP_RETURN event transactions, renders
   `Launch To AMM Proof`, `Latest Proof Pack`, `AMM Trades`, and `AMM Reserve
   Audit` tables from `/api/state`, and links trade, event, token, and contract

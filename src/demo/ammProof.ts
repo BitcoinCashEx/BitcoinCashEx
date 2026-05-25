@@ -106,11 +106,16 @@ export interface DemoLaunchAmmProofPackReceipt {
   readonly createTxid?: string;
   readonly endHeight?: number;
   readonly expectedTokenGenesisOutpoint?: string;
+  readonly expectedMigrationTokenChangeAmount?: string;
   readonly graduationBchAmountSats?: string;
   readonly graduationHeight?: number;
   readonly graduationTokenAmount?: string;
   readonly graduationTxid?: string;
   readonly expectedPoolFundingOutpoint?: string;
+  readonly migrationTokenChangeAmount?: string;
+  readonly migrationTokenOutputAmount?: string;
+  readonly migrationTokenOutputsFungibleOnly?: boolean;
+  readonly migrationTokenSupplyConserved?: boolean;
   readonly migratedPoolBchSats?: string;
   readonly migratedPoolTokenAmount?: string;
   readonly poolFundingConfirmed?: boolean;
@@ -122,11 +127,15 @@ export interface DemoLaunchAmmProofPackReceipt {
   readonly tokenBindingHeight?: number;
   readonly tokenBindingTxid?: string;
   readonly tokenCategory?: string;
+  readonly tokenGenesisAmount?: string;
+  readonly tokenGenesisFungibleOnly?: boolean;
   readonly tokenGenesisHeight?: number;
   readonly tokenGenesisMinedBeforeBinding?: boolean;
+  readonly tokenGenesisOutputConfirmed?: boolean;
   readonly tokenGenesisSourceConfirmed?: boolean;
   readonly tokenGenesisSourceOutpoint?: string;
   readonly tokenGenesisTxid?: string;
+  readonly tokenGenesisVout?: number;
 }
 
 export const demoAmmSwapFeeSats = 2_000n;
@@ -440,6 +449,7 @@ export const buildDemoLaunchAmmProofPackReceipt = ({
     readonly inputOutpoints: readonly string[];
     readonly tokenData: DemoTokenData;
     readonly txid: string;
+    readonly vout?: number;
   }[];
   readonly transitionAudits: readonly DemoAmmProofPackAuditInput[];
 }): DemoLaunchAmmProofPackReceipt => {
@@ -470,17 +480,27 @@ export const buildDemoLaunchAmmProofPackReceipt = ({
     problems.push("Launch CashToken binding was not mined after graduation.");
   }
 
-  const matchingTokenProof =
+  const tokenGenesisCandidates =
     tokenCategory === undefined || tokenBinding?.tokenGenesisTxid === undefined
-      ? undefined
-      : tokenProofs.find(
+      ? []
+      : tokenProofs.filter(
           (proof) =>
             proof.txid.toLowerCase() === tokenBinding.tokenGenesisTxid?.toLowerCase() &&
             proof.tokenData.category.toLowerCase() === tokenCategory &&
             proof.tokenData.amount !== undefined
         );
-  if (tokenCategory !== undefined && tokenBinding?.tokenGenesisTxid !== undefined && matchingTokenProof === undefined) {
+  const matchingTokenProof = tokenGenesisCandidates.find((proof) => proof.vout === 0);
+  if (tokenCategory !== undefined && tokenBinding?.tokenGenesisTxid !== undefined && tokenGenesisCandidates.length === 0) {
     problems.push("Bound CashToken genesis output was not found on chain.");
+  }
+  if (tokenGenesisCandidates.length > 0 && matchingTokenProof === undefined) {
+    problems.push("Bound CashToken genesis transaction did not create the expected vout 0 token output.");
+  }
+  const tokenGenesisOutputConfirmed =
+    tokenCategory === undefined || tokenBinding?.tokenGenesisTxid === undefined ? undefined : matchingTokenProof !== undefined;
+  const tokenGenesisFungibleOnly = matchingTokenProof === undefined ? undefined : matchingTokenProof.tokenData.nft === undefined;
+  if (tokenGenesisFungibleOnly === false) {
+    problems.push("Bound CashToken genesis output must be fungible-only.");
   }
   const tokenGenesisMinedBeforeBinding =
     matchingTokenProof === undefined || tokenBinding === undefined ? undefined : matchingTokenProof.height < tokenBinding.height;
@@ -532,6 +552,43 @@ export const buildDemoLaunchAmmProofPackReceipt = ({
     problems.push("Launch AMM pool did not spend the bound CashToken genesis output.");
   }
 
+  const tokenGenesisAmount = matchingTokenProof?.tokenData.amount;
+  const migrationTokenProofs =
+    firstPool === undefined || tokenCategory === undefined
+      ? []
+      : tokenProofs.filter(
+          (proof) =>
+            proof.txid.toLowerCase() === firstPool.txid.toLowerCase() &&
+            proof.tokenData.category.toLowerCase() === tokenCategory
+        );
+  const migrationTokenOutputs = migrationTokenProofs.filter((proof) => proof.tokenData.amount !== undefined);
+  const migrationTokenOutputsFungibleOnly =
+    migrationTokenProofs.length === 0
+      ? undefined
+      : migrationTokenProofs.every((proof) => proof.tokenData.nft === undefined);
+  if (migrationTokenOutputsFungibleOnly === false) {
+    problems.push("Launch AMM migration token outputs must be fungible-only.");
+  }
+  const migrationTokenOutputAmount =
+    migrationTokenOutputs.length === 0
+      ? undefined
+      : migrationTokenOutputs
+          .reduce((total, proof) => total + BigInt(proof.tokenData.amount ?? "0"), 0n)
+          .toString();
+  const expectedMigrationTokenChangeAmount =
+    tokenGenesisAmount === undefined || firstPool?.tokenData.amount === undefined
+      ? undefined
+      : (BigInt(tokenGenesisAmount) - BigInt(firstPool.tokenData.amount)).toString();
+  const migrationTokenChangeAmount =
+    migrationTokenOutputAmount === undefined || firstPool?.tokenData.amount === undefined
+      ? undefined
+      : (BigInt(migrationTokenOutputAmount) - BigInt(firstPool.tokenData.amount)).toString();
+  const migrationTokenSupplyConserved =
+    tokenGenesisAmount === undefined || firstPool === undefined ? undefined : migrationTokenOutputAmount === tokenGenesisAmount;
+  if (matchingTokenProof !== undefined && firstPool !== undefined && migrationTokenSupplyConserved !== true) {
+    problems.push("Launch AMM migration token outputs do not conserve the bound CashToken genesis amount.");
+  }
+
   const auditsForLaunch =
     tokenCategory === undefined
       ? []
@@ -555,12 +612,17 @@ export const buildDemoLaunchAmmProofPackReceipt = ({
     ...(create === undefined ? {} : { createTxid: create.txid }),
     ...(ammProofPack.endHeight === undefined ? {} : { endHeight: ammProofPack.endHeight }),
     ...(expectedTokenGenesisOutpoint === undefined ? {} : { expectedTokenGenesisOutpoint }),
+    ...(expectedMigrationTokenChangeAmount === undefined ? {} : { expectedMigrationTokenChangeAmount }),
     ...(graduation?.graduationBchAmountSats === undefined
       ? {}
       : { graduationBchAmountSats: graduation.graduationBchAmountSats }),
     ...(graduation === undefined ? {} : { graduationHeight: graduation.height, graduationTxid: graduation.txid }),
     ...(graduation?.graduationTokenAmount === undefined ? {} : { graduationTokenAmount: graduation.graduationTokenAmount }),
     ...(expectedPoolFundingOutpoint === undefined ? {} : { expectedPoolFundingOutpoint }),
+    ...(migrationTokenChangeAmount === undefined ? {} : { migrationTokenChangeAmount }),
+    ...(migrationTokenOutputAmount === undefined ? {} : { migrationTokenOutputAmount }),
+    ...(migrationTokenOutputsFungibleOnly === undefined ? {} : { migrationTokenOutputsFungibleOnly }),
+    ...(migrationTokenSupplyConserved === undefined ? {} : { migrationTokenSupplyConserved }),
     ...(firstPool === undefined
       ? {}
       : {
@@ -578,11 +640,16 @@ export const buildDemoLaunchAmmProofPackReceipt = ({
     ...(matchingTokenProof === undefined
       ? {}
       : {
+          tokenGenesisAmount: matchingTokenProof.tokenData.amount,
+          tokenGenesisFungibleOnly: matchingTokenProof.tokenData.nft === undefined,
           tokenGenesisHeight: matchingTokenProof.height,
           ...(tokenGenesisMinedBeforeBinding === undefined ? {} : { tokenGenesisMinedBeforeBinding }),
+          tokenGenesisOutputConfirmed: true,
           tokenGenesisSourceConfirmed: tokenGenesisSourceOutpoint !== undefined,
+          ...(matchingTokenProof.vout === undefined ? {} : { tokenGenesisVout: matchingTokenProof.vout }),
           ...(tokenGenesisSourceOutpoint === undefined ? {} : { tokenGenesisSourceOutpoint })
         }),
+    ...(matchingTokenProof !== undefined || tokenGenesisOutputConfirmed === undefined ? {} : { tokenGenesisOutputConfirmed }),
     ...(tokenBinding?.tokenGenesisTxid === undefined ? {} : { tokenGenesisTxid: tokenBinding.tokenGenesisTxid })
   };
 };

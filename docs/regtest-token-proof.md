@@ -13,10 +13,14 @@ into that CashVM P2SH AMM pool UTXO, and executes a backend-submitted BCH to
 token swap plus a token to BCH reverse swap by spending and recreating that
 pool. The launch-to-AMM receipt also verifies that the pool was funded by
 spending the bound CashToken genesis output, and that the token genesis spent
-`<category>:0` before the launch TOKEN binding was mined. This proves backend
-transaction submission, chain-derived state, native BCHN `tokenData`, CashVM
-spend plumbing, and AMM pool UTXO updates, but not yet CashVM-enforced covenant
-custody.
+`<category>:0` before the launch TOKEN binding was mined. It also verifies that
+the first migration transaction conserves the bound CashToken genesis amount
+across the AMM pool output plus token change. It requires the bound genesis
+output to be `tokenGenesisTxid:0`, requires launch and migration token outputs
+to be fungible-only, and rejects same-category NFT authority in the migration
+transaction. This proves backend transaction submission, chain-derived state,
+native BCHN `tokenData`, CashVM spend plumbing, and AMM pool UTXO updates, but
+not yet CashVM-enforced covenant custody.
 
 ## Practical Stack
 
@@ -86,8 +90,10 @@ The current implementation uses BCHN RPC directly, without Fulcrum:
   binding event for a real CashToken, creates a CashVM pool for that category
   with the launch graduation BCH/token amounts, proves that token genesis spent
   `<category>:0`, proves that token genesis was mined before the TOKEN binding,
-  proves that the pool input spent `<genesis>:0`, runs both AMM swap directions,
-  and returns only after the chain-derived launch/AMM receipt verifies.
+  proves that the pool input spent `<genesis>:0`, proves the migration
+  transaction conserved the bound genesis token amount, rejects NFT-bearing
+  launch or migration token outputs, runs both AMM swap directions, and returns
+  only after the chain-derived launch/AMM receipt verifies.
 - `/tx/<swap-txid>` returns decoded `ammTrade` and `ammTransitionAudit` fields,
   so the explorer link itself shows marker data, expected reserves, actual
   reserves, previous pool spend confirmation, CashVM P2SH spend status, and

@@ -360,7 +360,15 @@ describe("demo AMM pool proof helpers", () => {
             height: 10,
             inputOutpoints: [`${category}:0`],
             tokenData: { amount: "900000", category },
-            txid: "02".repeat(32)
+            txid: "02".repeat(32),
+            vout: 0
+          },
+          {
+            height: 13,
+            inputOutpoints: [`${"02".repeat(32)}:0`],
+            tokenData: { amount: "900000", category },
+            txid: "05".repeat(32),
+            vout: 0
           }
         ],
         transitionAudits: [
@@ -391,17 +399,26 @@ describe("demo AMM pool proof helpers", () => {
         status: "verified"
       },
       poolTxid: "05".repeat(32),
+      expectedMigrationTokenChangeAmount: "0",
+      migrationTokenChangeAmount: "0",
+      migrationTokenOutputAmount: "900000",
+      migrationTokenSupplyConserved: true,
+      migrationTokenOutputsFungibleOnly: true,
       poolFundingConfirmed: true,
       poolFundingOutpoint: `${"02".repeat(32)}:0`,
       problems: [],
       status: "verified",
       tokenBindingTxid: "03".repeat(32),
       tokenCategory: category,
+      tokenGenesisAmount: "900000",
+      tokenGenesisFungibleOnly: true,
       tokenGenesisHeight: 10,
       tokenGenesisMinedBeforeBinding: true,
+      tokenGenesisOutputConfirmed: true,
       tokenGenesisSourceConfirmed: true,
       tokenGenesisSourceOutpoint: `${category}:0`,
-      tokenGenesisTxid: "02".repeat(32)
+      tokenGenesisTxid: "02".repeat(32),
+      tokenGenesisVout: 0
     });
   });
 
@@ -482,7 +499,15 @@ describe("demo AMM pool proof helpers", () => {
             height: 10,
             inputOutpoints: [`${category}:0`],
             tokenData: { amount: "900000", category },
-            txid: "02".repeat(32)
+            txid: "02".repeat(32),
+            vout: 0
+          },
+          {
+            height: 13,
+            inputOutpoints: [`${"ff".repeat(32)}:0`],
+            tokenData: { amount: "900000", category },
+            txid: "05".repeat(32),
+            vout: 0
           }
         ],
         transitionAudits: [
@@ -552,7 +577,15 @@ describe("demo AMM pool proof helpers", () => {
             height: 10,
             inputOutpoints: [`${"ff".repeat(32)}:0`],
             tokenData: { amount: "900000", category },
-            txid: "02".repeat(32)
+            txid: "02".repeat(32),
+            vout: 0
+          },
+          {
+            height: 13,
+            inputOutpoints: [`${"02".repeat(32)}:0`],
+            tokenData: { amount: "900000", category },
+            txid: "05".repeat(32),
+            vout: 0
           }
         ],
         transitionAudits: [
@@ -622,7 +655,15 @@ describe("demo AMM pool proof helpers", () => {
             height: 12,
             inputOutpoints: [`${category}:0`],
             tokenData: { amount: "900000", category },
-            txid: "02".repeat(32)
+            txid: "02".repeat(32),
+            vout: 0
+          },
+          {
+            height: 13,
+            inputOutpoints: [`${"02".repeat(32)}:0`],
+            tokenData: { amount: "900000", category },
+            txid: "05".repeat(32),
+            vout: 0
           }
         ],
         transitionAudits: [
@@ -651,6 +692,333 @@ describe("demo AMM pool proof helpers", () => {
       status: "failed",
       tokenGenesisHeight: 12,
       tokenGenesisMinedBeforeBinding: false
+    });
+  });
+
+  it("fails launch-to-AMM proof packs when migration token outputs do not conserve genesis supply", () => {
+    const category = "aa".repeat(32);
+
+    expect(
+      buildDemoLaunchAmmProofPackReceipt({
+        history: [
+          { height: 10, kind: "CREATE", statusAfter: "active", txid: "01".repeat(32) },
+          {
+            graduationBchAmountSats: "5000000000",
+            graduationTokenAmount: "800000",
+            height: 11,
+            kind: "GRADUATE",
+            statusAfter: "graduated",
+            txid: "04".repeat(32)
+          },
+          {
+            category,
+            height: 12,
+            kind: "TOKEN",
+            statusAfter: "active",
+            tokenGenesisTxid: "02".repeat(32),
+            txid: "03".repeat(32)
+          }
+        ],
+        pools: [
+          {
+            ...pool,
+            height: 13,
+            inputOutpoints: [`${"02".repeat(32)}:0`],
+            tokenData: { ...pool.tokenData, amount: "800000", category },
+            txid: "05".repeat(32)
+          }
+        ],
+        tokenProofs: [
+          {
+            height: 10,
+            inputOutpoints: [`${category}:0`],
+            tokenData: { amount: "900000", category },
+            txid: "02".repeat(32),
+            vout: 0
+          },
+          {
+            height: 13,
+            inputOutpoints: [`${"02".repeat(32)}:0`],
+            tokenData: { amount: "800000", category },
+            txid: "05".repeat(32),
+            vout: 0
+          },
+          {
+            height: 13,
+            inputOutpoints: [`${"02".repeat(32)}:0`],
+            tokenData: { amount: "99999", category },
+            txid: "05".repeat(32),
+            vout: 1
+          }
+        ],
+        transitionAudits: [
+          {
+            category,
+            height: 14,
+            previousPoolTxid: "05".repeat(32),
+            problems: [],
+            side: "BCH_TO_TOKEN",
+            status: "verified",
+            txid: "06".repeat(32)
+          },
+          {
+            category,
+            height: 15,
+            previousPoolTxid: "06".repeat(32),
+            problems: [],
+            side: "TOKEN_TO_BCH",
+            status: "verified",
+            txid: "07".repeat(32)
+          }
+        ]
+      })
+    ).toMatchObject({
+      expectedMigrationTokenChangeAmount: "100000",
+      migrationTokenChangeAmount: "99999",
+      migrationTokenOutputAmount: "899999",
+      migrationTokenSupplyConserved: false,
+      problems: ["Launch AMM migration token outputs do not conserve the bound CashToken genesis amount."],
+      status: "failed"
+    });
+  });
+
+  it("fails launch-to-AMM proof packs when the bound token genesis is not vout 0", () => {
+    const category = "aa".repeat(32);
+
+    expect(
+      buildDemoLaunchAmmProofPackReceipt({
+        history: [
+          { height: 10, kind: "CREATE", statusAfter: "active", txid: "01".repeat(32) },
+          {
+            graduationBchAmountSats: "5000000000",
+            graduationTokenAmount: "900000",
+            height: 11,
+            kind: "GRADUATE",
+            statusAfter: "graduated",
+            txid: "04".repeat(32)
+          },
+          {
+            category,
+            height: 12,
+            kind: "TOKEN",
+            statusAfter: "active",
+            tokenGenesisTxid: "02".repeat(32),
+            txid: "03".repeat(32)
+          }
+        ],
+        pools: [
+          {
+            ...pool,
+            height: 13,
+            inputOutpoints: [`${"02".repeat(32)}:0`],
+            tokenData: { ...pool.tokenData, category },
+            txid: "05".repeat(32)
+          }
+        ],
+        tokenProofs: [
+          {
+            height: 10,
+            inputOutpoints: [`${category}:0`],
+            tokenData: { amount: "900000", category },
+            txid: "02".repeat(32),
+            vout: 1
+          },
+          {
+            height: 13,
+            inputOutpoints: [`${"02".repeat(32)}:0`],
+            tokenData: { amount: "900000", category },
+            txid: "05".repeat(32),
+            vout: 0
+          }
+        ],
+        transitionAudits: [
+          {
+            category,
+            height: 14,
+            previousPoolTxid: "05".repeat(32),
+            problems: [],
+            side: "BCH_TO_TOKEN",
+            status: "verified",
+            txid: "06".repeat(32)
+          },
+          {
+            category,
+            height: 15,
+            previousPoolTxid: "06".repeat(32),
+            problems: [],
+            side: "TOKEN_TO_BCH",
+            status: "verified",
+            txid: "07".repeat(32)
+          }
+        ]
+      })
+    ).toMatchObject({
+      problems: ["Bound CashToken genesis transaction did not create the expected vout 0 token output."],
+      status: "failed",
+      tokenGenesisOutputConfirmed: false
+    });
+  });
+
+  it("fails launch-to-AMM proof packs when the bound genesis output carries NFT authority", () => {
+    const category = "aa".repeat(32);
+
+    expect(
+      buildDemoLaunchAmmProofPackReceipt({
+        history: [
+          { height: 10, kind: "CREATE", statusAfter: "active", txid: "01".repeat(32) },
+          {
+            graduationBchAmountSats: "5000000000",
+            graduationTokenAmount: "900000",
+            height: 11,
+            kind: "GRADUATE",
+            statusAfter: "graduated",
+            txid: "04".repeat(32)
+          },
+          {
+            category,
+            height: 12,
+            kind: "TOKEN",
+            statusAfter: "active",
+            tokenGenesisTxid: "02".repeat(32),
+            txid: "03".repeat(32)
+          }
+        ],
+        pools: [
+          {
+            ...pool,
+            height: 13,
+            inputOutpoints: [`${"02".repeat(32)}:0`],
+            tokenData: { ...pool.tokenData, category },
+            txid: "05".repeat(32)
+          }
+        ],
+        tokenProofs: [
+          {
+            height: 10,
+            inputOutpoints: [`${category}:0`],
+            tokenData: { amount: "900000", category, nft: { capability: "minting", commitment: "" } },
+            txid: "02".repeat(32),
+            vout: 0
+          },
+          {
+            height: 13,
+            inputOutpoints: [`${"02".repeat(32)}:0`],
+            tokenData: { amount: "900000", category },
+            txid: "05".repeat(32),
+            vout: 0
+          }
+        ],
+        transitionAudits: [
+          {
+            category,
+            height: 14,
+            previousPoolTxid: "05".repeat(32),
+            problems: [],
+            side: "BCH_TO_TOKEN",
+            status: "verified",
+            txid: "06".repeat(32)
+          },
+          {
+            category,
+            height: 15,
+            previousPoolTxid: "06".repeat(32),
+            problems: [],
+            side: "TOKEN_TO_BCH",
+            status: "verified",
+            txid: "07".repeat(32)
+          }
+        ]
+      })
+    ).toMatchObject({
+      problems: ["Bound CashToken genesis output must be fungible-only."],
+      status: "failed",
+      tokenGenesisFungibleOnly: false
+    });
+  });
+
+  it("fails launch-to-AMM proof packs when migration keeps same-category NFT authority", () => {
+    const category = "aa".repeat(32);
+
+    expect(
+      buildDemoLaunchAmmProofPackReceipt({
+        history: [
+          { height: 10, kind: "CREATE", statusAfter: "active", txid: "01".repeat(32) },
+          {
+            graduationBchAmountSats: "5000000000",
+            graduationTokenAmount: "900000",
+            height: 11,
+            kind: "GRADUATE",
+            statusAfter: "graduated",
+            txid: "04".repeat(32)
+          },
+          {
+            category,
+            height: 12,
+            kind: "TOKEN",
+            statusAfter: "active",
+            tokenGenesisTxid: "02".repeat(32),
+            txid: "03".repeat(32)
+          }
+        ],
+        pools: [
+          {
+            ...pool,
+            height: 13,
+            inputOutpoints: [`${"02".repeat(32)}:0`],
+            tokenData: { ...pool.tokenData, category },
+            txid: "05".repeat(32)
+          }
+        ],
+        tokenProofs: [
+          {
+            height: 10,
+            inputOutpoints: [`${category}:0`],
+            tokenData: { amount: "900000", category },
+            txid: "02".repeat(32),
+            vout: 0
+          },
+          {
+            height: 13,
+            inputOutpoints: [`${"02".repeat(32)}:0`],
+            tokenData: { amount: "900000", category },
+            txid: "05".repeat(32),
+            vout: 0
+          },
+          {
+            height: 13,
+            inputOutpoints: [`${"02".repeat(32)}:0`],
+            tokenData: { category, nft: { capability: "mutable", commitment: "00" } },
+            txid: "05".repeat(32),
+            vout: 1
+          }
+        ],
+        transitionAudits: [
+          {
+            category,
+            height: 14,
+            previousPoolTxid: "05".repeat(32),
+            problems: [],
+            side: "BCH_TO_TOKEN",
+            status: "verified",
+            txid: "06".repeat(32)
+          },
+          {
+            category,
+            height: 15,
+            previousPoolTxid: "06".repeat(32),
+            problems: [],
+            side: "TOKEN_TO_BCH",
+            status: "verified",
+            txid: "07".repeat(32)
+          }
+        ]
+      })
+    ).toMatchObject({
+      migrationTokenOutputAmount: "900000",
+      migrationTokenOutputsFungibleOnly: false,
+      migrationTokenSupplyConserved: true,
+      problems: ["Launch AMM migration token outputs must be fungible-only."],
+      status: "failed"
     });
   });
 
