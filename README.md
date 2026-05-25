@@ -24,7 +24,8 @@ math, and production-grade safety checks.
   CashToken category on chain, creates the CashVM pool with the launch
   graduation BCH/token amounts, proves the pool spent the bound token genesis
   output, proves the migration transaction conserves the bound genesis token
-  amount, rejects NFT-bearing launch or migration token outputs, and verifies
+  amount, proves the first pool vout is present in same-transaction token
+  outputs, rejects NFT-bearing launch or migration token outputs, and verifies
   both AMM swap directions.
 - BCHN raw transaction safety helper that checks `testmempoolaccept` before
   broadcasting.
@@ -70,7 +71,8 @@ binding order check proving token genesis was mined before the launch binding
 event, plus the migration token conservation check for pool output plus token
 change. The receipt also requires the bound genesis output to be
 `tokenGenesisTxid:0` and fungible-only, and rejects same-category NFT authority
-in the migration transaction.
+in the migration transaction. The pool output is also cross-checked against the
+same transaction's token outputs at the exact AMM pool vout.
 
 Stop it when finished:
 

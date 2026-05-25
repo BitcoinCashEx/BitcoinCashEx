@@ -402,6 +402,8 @@ describe("demo AMM pool proof helpers", () => {
       expectedMigrationTokenChangeAmount: "0",
       migrationTokenChangeAmount: "0",
       migrationTokenOutputAmount: "900000",
+      migrationPoolOutputConfirmed: true,
+      migrationPoolOutputVout: 0,
       migrationTokenSupplyConserved: true,
       migrationTokenOutputsFungibleOnly: true,
       poolFundingConfirmed: true,
@@ -455,6 +457,7 @@ describe("demo AMM pool proof helpers", () => {
         "Bound CashToken genesis output was not found on chain.",
         "Launch AMM pool was not created after the CashToken binding event.",
         "Launch AMM pool did not spend the bound CashToken genesis output.",
+        "Launch AMM pool output was not found in same-transaction token proofs.",
         "AMM proof pack: No complete BCH-to-token then token-to-BCH AMM proof pair was found."
       ],
       status: "failed"
@@ -1018,6 +1021,122 @@ describe("demo AMM pool proof helpers", () => {
       migrationTokenOutputsFungibleOnly: false,
       migrationTokenSupplyConserved: true,
       problems: ["Launch AMM migration token outputs must be fungible-only."],
+      status: "failed"
+    });
+  });
+
+  it("fails launch-to-AMM proof packs when the token binding identifiers are malformed", () => {
+    expect(
+      buildDemoLaunchAmmProofPackReceipt({
+        history: [
+          { height: 10, kind: "CREATE", statusAfter: "active", txid: "01".repeat(32) },
+          {
+            graduationBchAmountSats: "5000000000",
+            graduationTokenAmount: "900000",
+            height: 11,
+            kind: "GRADUATE",
+            statusAfter: "graduated",
+            txid: "04".repeat(32)
+          },
+          {
+            category: "not-a-token-category",
+            height: 12,
+            kind: "TOKEN",
+            statusAfter: "active",
+            tokenGenesisTxid: "not-a-genesis-txid",
+            txid: "03".repeat(32)
+          }
+        ],
+        pools: [],
+        tokenProofs: [],
+        transitionAudits: []
+      })
+    ).toMatchObject({
+      problems: [
+        "Launch CashToken binding category is not a 32-byte transaction id.",
+        "Launch CashToken binding genesis transaction id is not a 32-byte transaction id.",
+        "AMM proof pack: No complete BCH-to-token then token-to-BCH AMM proof pair was found."
+      ],
+      status: "failed"
+    });
+  });
+
+  it("fails launch-to-AMM proof packs when the AMM pool vout is not proven by token outputs", () => {
+    const category = "aa".repeat(32);
+
+    expect(
+      buildDemoLaunchAmmProofPackReceipt({
+        history: [
+          { height: 10, kind: "CREATE", statusAfter: "active", txid: "01".repeat(32) },
+          {
+            graduationBchAmountSats: "5000000000",
+            graduationTokenAmount: "900000",
+            height: 11,
+            kind: "GRADUATE",
+            statusAfter: "graduated",
+            txid: "04".repeat(32)
+          },
+          {
+            category,
+            height: 12,
+            kind: "TOKEN",
+            statusAfter: "active",
+            tokenGenesisTxid: "02".repeat(32),
+            txid: "03".repeat(32)
+          }
+        ],
+        pools: [
+          {
+            ...pool,
+            height: 13,
+            inputOutpoints: [`${"02".repeat(32)}:0`],
+            tokenData: { ...pool.tokenData, category },
+            txid: "05".repeat(32),
+            vout: 0
+          }
+        ],
+        tokenProofs: [
+          {
+            height: 10,
+            inputOutpoints: [`${category}:0`],
+            tokenData: { amount: "900000", category },
+            txid: "02".repeat(32),
+            vout: 0
+          },
+          {
+            height: 13,
+            inputOutpoints: [`${"02".repeat(32)}:0`],
+            tokenData: { amount: "900000", category },
+            txid: "05".repeat(32),
+            vout: 1
+          }
+        ],
+        transitionAudits: [
+          {
+            category,
+            height: 14,
+            previousPoolTxid: "05".repeat(32),
+            problems: [],
+            side: "BCH_TO_TOKEN",
+            status: "verified",
+            txid: "06".repeat(32)
+          },
+          {
+            category,
+            height: 15,
+            previousPoolTxid: "06".repeat(32),
+            problems: [],
+            side: "TOKEN_TO_BCH",
+            status: "verified",
+            txid: "07".repeat(32)
+          }
+        ]
+      })
+    ).toMatchObject({
+      migrationPoolOutputConfirmed: false,
+      migrationTokenOutputAmount: "900000",
+      migrationTokenSupplyConserved: true,
+      problems: ["Launch AMM pool output was not found in same-transaction token proofs."],
       status: "failed"
     });
   });

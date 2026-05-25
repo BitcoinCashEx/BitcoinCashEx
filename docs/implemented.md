@@ -25,8 +25,9 @@
   CashToken category with an on-chain TOKEN event, migrates the launch
   graduation BCH/token amounts into a CashVM AMM pool, proves the pool spent the
   bound token genesis output, proves the migration transaction conserves the
-  bound genesis token amount, rejects NFT-bearing launch or migration token
-  outputs, then proves AMM swaps for that category.
+  bound genesis token amount, proves the first AMM pool vout exists in the
+  migration transaction's token outputs, rejects NFT-bearing launch or
+  migration token outputs, then proves AMM swaps for that category.
 - Virtual-reserve bonding curve buy/sell quote math.
 - Liquidity initialization with locked minimum liquidity.
 - Proportional add-liquidity quote with excess-side refunds.
@@ -77,6 +78,8 @@ The local demo now proves the first on-chain AMM path on BCHN regtest:
 - The launch receipt sums all same-transaction token outputs for the bound
   category and checks they conserve the bound token genesis amount across the
   first AMM pool output plus token change.
+- The first AMM pool output is cross-checked against the migration
+  transaction's token proofs at the exact pool vout and amount.
 - The same migration scan rejects same-category NFT outputs, including
   NFT-only outputs with no fungible amount.
 - The pool transaction includes a same-transaction `BCHEXAMM1|<category>`
@@ -125,8 +128,8 @@ The local demo now proves the first on-chain AMM path on BCHN regtest:
   NFT-bearing launch or migration token outputs, mines both AMM swap directions,
   and returns only after `/api/state.launchAmmProofPack` verifies the launch,
   token, migration pool, token source outpoint, token output position, token
-  binding order, pool funding outpoint, migration token conservation, AMM audit,
-  and CashVM spend linkage.
+  binding order, pool funding outpoint, migration pool output binding,
+  migration token conservation, AMM audit, and CashVM spend linkage.
 - `/tx/<swap-txid>` includes `ammTrade` and `ammTransitionAudit.cashVmSpend`,
   making each local explorer link a self-contained proof for that swap
   transaction, including operator redeem-script confirmation.
@@ -159,6 +162,8 @@ Current local proof values:
   outputs `900000`, expected change `766419`, actual change `766419`.
 - Latest launch token hardening: bound genesis output vout `0`; genesis and
   migration token outputs fungible-only.
+- Latest migration pool output binding: AMM pool vout `0` is present in the
+  migration transaction's token proofs with amount `133581`.
 - Latest marker-backed BCH-to-token swap:
   `e131a1e1be0c941eca5bf23ee51827d17c434b7b6c30bf8c44819c04d9022d4e` at
   height `167`.
@@ -207,7 +212,8 @@ covenant that enforces the AMM reserve transition inside CashVM.
   event, creates a CashVM pool for the bound token category with the launch
   graduation BCH/token amounts, proves the pool spent the bound token genesis
   output, proves migration token conservation, rejects NFT-bearing launch or
-  migration token outputs, and verifies both AMM swap directions.
+  migration token outputs, proves the first AMM pool output against the
+  migration transaction token proofs, and verifies both AMM swap directions.
 - `/api/state` scans BCHN blocks and reconstructs launch state from chain
   events, token outputs, CashVM pool UTXOs, decoded AMM trades, and CashVM spend
   proofs.
@@ -215,7 +221,8 @@ covenant that enforces the AMM reserve transition inside CashVM.
   TOKEN binding event, real token genesis output, CashVM pool, AMM proof pair,
   migration seed amounts, token genesis source outpoint, pool funding outpoint,
   token output position, token binding order, migration token conservation,
-  token fungibility, and CashVM P2SH spend audits.
+  migration pool output binding, token fungibility, and CashVM P2SH spend
+  audits.
 - The UI renders an `AMM Trades` table with human-readable swap sides,
   input/output amounts, block height, token category, and local `/tx/<txid>`
   explorer links.
@@ -256,7 +263,7 @@ npm run node:health
 Current local result:
 
 - 14 test files.
-- 69 unit tests.
+- 71 unit tests.
 - TypeScript strict mode passes.
 - Build passes.
 - npm audit reports 0 vulnerabilities.

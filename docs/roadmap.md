@@ -39,6 +39,7 @@
 - [x] Add token-genesis-before-binding order verification to launch receipts.
 - [x] Add migration token conservation verification to launch receipts.
 - [x] Add vout-0 and fungible-only hardening to launch token receipts.
+- [x] Add same-transaction AMM pool output binding to launch receipts.
 - [ ] Add covenant-enforced regtest CashToken lifecycle tests.
 
 ## Phase 3: Indexing And State

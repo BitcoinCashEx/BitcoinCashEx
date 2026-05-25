@@ -15,7 +15,8 @@ BitcoinCashEx currently implements off-chain deterministic primitives:
   spending the bound CashToken genesis output and that the bound token genesis
   spent the category pre-genesis output before the launch TOKEN binding. It
   also checks migration token conservation across the first AMM pool output and
-  token change, and rejects NFT-bearing launch or migration token outputs.
+  token change, proves the first AMM pool vout exists in same-transaction token
+  outputs, and rejects NFT-bearing launch or migration token outputs.
 
 This is not a full Uniswap implementation yet. It is now a working local
 transaction proof for AMM pool custody and swap state transitions. The current
@@ -156,8 +157,9 @@ There is now also a local event-backed proof UI:
   graduation BCH/token amounts, prove the token genesis spent `<category>:0`,
   prove token genesis was mined before the TOKEN binding, prove the pool spent
   the bound token genesis output, prove migration token conservation, reject
-  NFT-bearing launch or migration token outputs, execute both AMM swap
-  directions, and verify the composed launch/AMM receipt from chain data.
+  NFT-bearing launch or migration token outputs, prove the first AMM pool vout
+  exists in same-transaction token outputs, execute both AMM swap directions,
+  and verify the composed launch/AMM receipt from chain data.
 - The page reconstructs state from mined OP_RETURN event transactions, renders
   `Launch To AMM Proof`, `Latest Proof Pack`, `AMM Trades`, and `AMM Reserve
   Audit` tables from `/api/state`, and links trade, event, token, and contract

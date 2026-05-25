@@ -198,6 +198,7 @@ const renderPage = (): string => `<!doctype html>
         const launchPack = data.launchAmmProofPack;
         const poolFundingOutpoint = launchPack.poolFundingOutpoint || launchPack.expectedPoolFundingOutpoint || '';
         const migrationTokenStatus = launchPack.migrationTokenSupplyConserved ? 'verified' : launchPack.status === 'missing' ? 'missing' : 'failed';
+        const migrationPoolOutputStatus = launchPack.migrationPoolOutputConfirmed ? 'verified' : launchPack.status === 'missing' ? 'missing' : 'failed';
         const tokenOutputStatus = launchPack.tokenGenesisOutputConfirmed ? 'vout 0' : launchPack.status === 'missing' ? 'missing' : 'failed';
         const tokenFungibilityStatus = launchPack.tokenGenesisFungibleOnly && launchPack.migrationTokenOutputsFungibleOnly ? 'verified' : launchPack.status === 'missing' ? 'missing' : 'failed';
         const pack = data.proofPack;
@@ -219,6 +220,7 @@ const renderPage = (): string => `<!doctype html>
           metric('Token fungibility', tokenFungibilityStatus),
           metric('Token binding order', launchPack.tokenGenesisMinedBeforeBinding ? 'verified' : launchPack.status === 'missing' ? 'missing' : 'failed'),
           metric('Migration tokens', migrationTokenStatus),
+          metric('Migration pool output', migrationPoolOutputStatus),
           metric('AMM audit', data.transitionAudits.length === 0 ? 'no swaps' : auditFailures === 0 ? 'verified' : auditFailures + ' failed'),
           metric('CashVM AMM spend', data.transitionAudits.length === 0 ? 'no swaps' : cashVmSpendFailures === 0 ? 'verified' : cashVmSpendFailures + ' failed')
         ].join('');
