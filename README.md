@@ -77,7 +77,8 @@ RPC URL protocols, URL-embedded credentials, empty credentials, and invalid
 timeouts.
 BCHN JSON-RPC responses are validated before returned results are trusted.
 Raw transaction helpers validate transaction hex, `testmempoolaccept` response
-shape, and broadcast txids before accepting a broadcast result.
+shape, fee/vsize fields, and broadcast txid consistency before accepting a
+broadcast result.
 On-chain launch events validate exact field counts and positive trade amounts
 before replaying chain state.
 OP_RETURN event parsing rejects malformed hex, unsupported push opcodes,

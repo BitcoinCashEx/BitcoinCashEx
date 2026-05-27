@@ -33,12 +33,18 @@ const normalizeTestMempoolAcceptResult = (value: unknown): TestMempoolAcceptResu
   if (value["reject-reason"] !== undefined && typeof value["reject-reason"] !== "string") {
     throw new Error("BCHN returned a malformed testmempoolaccept reject reason.");
   }
-  if (value.vsize !== undefined && (typeof value.vsize !== "number" || !Number.isFinite(value.vsize))) {
+  if (
+    value.vsize !== undefined &&
+    (typeof value.vsize !== "number" || !Number.isSafeInteger(value.vsize) || value.vsize <= 0)
+  ) {
     throw new Error("BCHN returned a malformed testmempoolaccept vsize.");
   }
   if (
     value.fees !== undefined &&
-    (!isRecord(value.fees) || typeof value.fees.base !== "number" || !Number.isFinite(value.fees.base))
+    (!isRecord(value.fees) ||
+      typeof value.fees.base !== "number" ||
+      !Number.isFinite(value.fees.base) ||
+      value.fees.base < 0)
   ) {
     throw new Error("BCHN returned malformed testmempoolaccept fees.");
   }
@@ -83,5 +89,9 @@ export const broadcastAcceptedRawTransaction = async (
   if (typeof txid !== "string" || !txidPattern.test(txid)) {
     throw new Error("BCHN sendrawtransaction returned a malformed transaction id.");
   }
-  return txid.toLowerCase();
+  const normalizedTxid = txid.toLowerCase();
+  if (result.txid !== undefined && result.txid !== normalizedTxid) {
+    throw new Error("BCHN sendrawtransaction transaction id did not match testmempoolaccept.");
+  }
+  return normalizedTxid;
 };

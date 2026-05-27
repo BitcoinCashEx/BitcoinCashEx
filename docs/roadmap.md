@@ -68,8 +68,9 @@
 - [x] Add fail-fast BCHN RPC environment validation for booleans, URLs,
   credentials, and timeouts.
 - [x] Validate BCHN JSON-RPC response shape before trusting returned results.
-- [x] Validate raw transaction hex, `testmempoolaccept` response shape, and
-  broadcast txids before accepting raw transaction safety helper results.
+- [x] Validate raw transaction hex, `testmempoolaccept` response shape,
+  fee/vsize fields, and broadcast txid consistency before accepting raw
+  transaction safety helper results.
 - [x] Validate on-chain launch event field counts and positive trade amounts
   before replaying chain state.
 - [x] Reject malformed OP_RETURN hex, unsupported push opcodes, truncated

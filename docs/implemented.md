@@ -210,7 +210,8 @@ covenant that enforces the AMM reserve transition inside CashVM.
 - Raw transaction broadcasting flows through `testmempoolaccept` first.
 - Rejected raw transactions are not broadcast.
 - Raw transaction helpers reject malformed transaction hex, unexpected or
-  malformed `testmempoolaccept` response shapes, and malformed broadcast txids.
+  malformed `testmempoolaccept` response shapes, malformed fee/vsize fields,
+  malformed broadcast txids, and mismatched accepted-versus-broadcast txids.
 
 ## Local Proof UI
 
@@ -297,7 +298,7 @@ npm run node:health
 Current local result:
 
 - 17 test files.
-- 107 unit tests.
+- 109 unit tests.
 - TypeScript strict mode passes.
 - Build passes.
 - npm audit reports 0 vulnerabilities.

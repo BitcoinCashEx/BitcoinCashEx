@@ -11,7 +11,8 @@
   trusted; malformed node responses fail closed as RPC errors.
 - Mainnet raw transaction broadcast is blocked in code unless explicitly enabled.
 - Raw transaction broadcast helpers reject malformed raw transaction hex,
-  malformed `testmempoolaccept` responses, and malformed broadcast txids.
+  malformed `testmempoolaccept` responses, malformed fee/vsize fields,
+  malformed broadcast txids, and mismatched accepted-versus-broadcast txids.
 - Demo HTTP endpoints that prepare backend-signed transactions enforce bounded
   JSON object bodies, `application/json` content type, positive integer-string
   amounts, and a fixed maximum amount precision before submitting to BCHN.

@@ -74,6 +74,23 @@ describe("transaction safety helpers", () => {
     await expect(testRawTransactionAccept(rpcWithBadTxid, "00")).rejects.toThrow("transaction id");
   });
 
+  it("rejects malformed testmempoolaccept fee and vsize fields", async () => {
+    const rpcWithNegativeFee: Pick<BchnRpcClient, "call"> = {
+      call: async <T>(): Promise<T> => [{ allowed: true, fees: { base: -0.00001 } }] as T
+    };
+    await expect(testRawTransactionAccept(rpcWithNegativeFee, "00")).rejects.toThrow("fees");
+
+    const rpcWithFractionalVsize: Pick<BchnRpcClient, "call"> = {
+      call: async <T>(): Promise<T> => [{ allowed: true, vsize: 12.5 }] as T
+    };
+    await expect(testRawTransactionAccept(rpcWithFractionalVsize, "00")).rejects.toThrow("vsize");
+
+    const rpcWithZeroVsize: Pick<BchnRpcClient, "call"> = {
+      call: async <T>(): Promise<T> => [{ allowed: true, vsize: 0 }] as T
+    };
+    await expect(testRawTransactionAccept(rpcWithZeroVsize, "00")).rejects.toThrow("vsize");
+  });
+
   it("rejects malformed sendrawtransaction txids", async () => {
     const rpc: Pick<BchnRpcClient, "call"> = {
       call: async <T>(method: BchnRpcMethod): Promise<T> => {
@@ -84,5 +101,17 @@ describe("transaction safety helpers", () => {
     };
 
     await expect(broadcastAcceptedRawTransaction(rpc, "00")).rejects.toThrow("malformed transaction id");
+  });
+
+  it("requires broadcast txids to match mempool-accepted txids when BCHN provides both", async () => {
+    const rpc: Pick<BchnRpcClient, "call"> = {
+      call: async <T>(method: BchnRpcMethod): Promise<T> => {
+        if (method === "testmempoolaccept") return [{ allowed: true, txid: "aa".repeat(32) }] as T;
+        if (method === "sendrawtransaction") return "bb".repeat(32) as T;
+        throw new Error(`unexpected method ${method}`);
+      }
+    };
+
+    await expect(broadcastAcceptedRawTransaction(rpc, "00")).rejects.toThrow("did not match testmempoolaccept");
   });
 });
