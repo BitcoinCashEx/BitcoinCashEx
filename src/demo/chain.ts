@@ -25,7 +25,8 @@ import {
   type DemoAmmTransitionAudit,
   type DemoLaunchAmmProofPackReceipt
 } from "./ammProof.js";
-import { encodeCashVmProofText, extractFinalPushDataHex, parseCashVmProofScript } from "./cashVmProof.js";
+import { encodeCashVmProofText, parseCashVmProofScript } from "./cashVmProof.js";
+import { extractDemoCashVmProofsFromTx, type DemoCashVmProof } from "./cashVmProofScanner.js";
 import {
   encodeDemoEventText,
   eventTextToHex,
@@ -35,7 +36,7 @@ import {
   type DemoChainEvent,
   type DemoEventInput
 } from "./events.js";
-import { auditDemoP2shSpend, createDemoOperatorP2shContract, deriveDemoP2shContract } from "./operatorContract.js";
+import { auditDemoP2shSpend, createDemoOperatorP2shContract } from "./operatorContract.js";
 import { summarizeDemoTokenData, type DemoTokenData } from "./tokenProof.js";
 
 export const demoPrivateKeyHex = "0000000000000000000000000000000000000000000000000000000000000001";
@@ -152,14 +153,6 @@ export interface DemoAmmTradeProof {
 
 export interface DemoAmmTransitionAuditProof extends DemoAmmTransitionAudit {
   readonly height: number;
-}
-
-export interface DemoCashVmProof {
-  readonly contractScriptPubKey: string;
-  readonly contractTxid: string;
-  readonly height: number;
-  readonly redeemScript: string;
-  readonly spendTxid: string;
 }
 
 export interface DemoAmmProofPackRun {
@@ -449,20 +442,7 @@ export const scanDemoCashVmProofs = async (): Promise<readonly DemoCashVmProof[]
   for (let height = 1; height <= blockCount; height += 1) {
     const block = await getBlockByHeight(height);
     for (const tx of block.tx) {
-      for (const output of tx.vout) {
-        const proof = parseCashVmProofScript(output.scriptPubKey.hex);
-        if (proof !== undefined) {
-          const spendInput = tx.vin.find((input) => input.txid === proof.contractTxid);
-          const redeemScript = extractFinalPushDataHex(spendInput?.scriptSig?.hex ?? "") ?? demoCashVmRedeemScript;
-          proofs.push({
-            contractScriptPubKey: deriveDemoP2shContract(redeemScript).scriptPubKey,
-            contractTxid: proof.contractTxid,
-            height,
-            redeemScript,
-            spendTxid: tx.txid
-          });
-        }
-      }
+      proofs.push(...extractDemoCashVmProofsFromTx(tx, height));
     }
   }
 

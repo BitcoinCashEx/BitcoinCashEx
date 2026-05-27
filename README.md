@@ -79,8 +79,12 @@ Raw transaction helpers validate transaction hex, `testmempoolaccept` response
 shape, and broadcast txids before accepting a broadcast result.
 On-chain launch events validate exact field counts and positive trade amounts
 before replaying chain state.
-OP_RETURN event parsing rejects malformed hex, truncated pushdata, and trailing
-script bytes before decoding launch events.
+OP_RETURN event parsing rejects malformed hex, unsupported push opcodes,
+truncated pushdata, and trailing script bytes before decoding launch events.
+CashVM proof marker and P2SH scriptSig parsing reject malformed bytecode before
+proving contract spends.
+CashVM proof scanning never falls back to a trusted local redeem script when
+the on-chain spend input is missing or malformed.
 Proof-pack receipts also reject malformed categories, malformed transaction
 ids, and self-referential audit pairs.
 The launch-to-AMM receipt also exposes the

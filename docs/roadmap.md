@@ -70,8 +70,12 @@
   broadcast txids before accepting raw transaction safety helper results.
 - [x] Validate on-chain launch event field counts and positive trade amounts
   before replaying chain state.
-- [x] Reject malformed OP_RETURN hex, truncated pushdata, and trailing script
-  bytes before decoding launch events.
+- [x] Reject malformed OP_RETURN hex, unsupported push opcodes, truncated
+  pushdata, and trailing script bytes before decoding launch events.
+- [x] Reject malformed CashVM proof marker and P2SH scriptSig bytecode before
+  proving contract spends.
+- [x] Require on-chain CashVM proof spends to reveal a parseable redeem script
+  instead of falling back to trusted local contract data.
 - [x] Add forged audit-pair and malformed txid checks to AMM proof-pack
   receipts.
 - Add reproducible deployment documentation.

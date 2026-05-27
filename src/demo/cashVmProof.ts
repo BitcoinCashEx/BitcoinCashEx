@@ -21,23 +21,33 @@ export const decodeCashVmProofText = (text: string): DemoCashVmProofEvent | unde
 };
 
 export const parseCashVmProofScript = (scriptHex: string): DemoCashVmProofEvent | undefined => {
+  if (!/^(?:[0-9a-f]{2})*$/i.test(scriptHex)) return undefined;
+
   const bytes = Buffer.from(scriptHex, "hex");
   if (bytes[0] !== 0x6a || bytes[1] === undefined) return undefined;
 
+  const opcode = bytes[1];
   let offset = 2;
-  let length = bytes[1];
-  if (length === 0x4c) {
+  let length: number;
+  if (opcode === 0x00 || (opcode >= 0x01 && opcode <= 0x4b)) {
+    length = opcode;
+  } else if (opcode === 0x4c) {
     const pushDataLength = bytes[2];
     if (pushDataLength === undefined) return undefined;
     length = pushDataLength;
     offset = 3;
+  } else {
+    return undefined;
   }
   if (bytes.length < offset + length) return undefined;
+  if (bytes.length !== offset + length) return undefined;
 
   return decodeCashVmProofText(bytes.subarray(offset, offset + length).toString("utf8"));
 };
 
 export const extractFinalPushDataHex = (scriptHex: string): string | undefined => {
+  if (!/^(?:[0-9a-f]{2})*$/i.test(scriptHex)) return undefined;
+
   const bytes = Buffer.from(scriptHex, "hex");
   let offset = 0;
   let finalPush: Buffer | undefined;

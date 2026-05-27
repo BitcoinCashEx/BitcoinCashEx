@@ -74,6 +74,20 @@ describe("demo on-chain event replay", () => {
     });
   });
 
+  it("rejects unsupported OP_RETURN push opcodes for long launch event payloads", () => {
+    const text = encodeDemoEventText({
+      category: "aa".repeat(32),
+      kind: "TOKEN",
+      tokenGenesisTxid: "bb".repeat(32)
+    });
+    const payload = Buffer.from(text, "utf8");
+    const script = Buffer.concat([Buffer.from([0x6a, payload.length]), payload]).toString("hex");
+
+    expect(payload.length).toBeGreaterThan(0x4b);
+    expect(parseOpReturnText(script)).toBeUndefined();
+    expect(parseOpReturnEvent(script)).toBeUndefined();
+  });
+
   it("rejects malformed event field counts and non-positive trade amounts", () => {
     expect(() => decodeDemoEventText("BCHEX1|CREATE|PUMP|0|900000|100000|1000000|100|300000|extra")).toThrow(
       "exactly 9 fields"
