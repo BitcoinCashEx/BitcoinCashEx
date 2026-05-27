@@ -102,6 +102,8 @@ Reasons to start here:
 - Add AMM reserve-transition audits that reconstruct each swap from previous
   and next CashVM pool UTXOs. Done in `src/demo/ammProof.ts`,
   `src/demo/chain.ts`, and `src/demo/server.ts`.
+- Add malformed AMM trade marker and reserve-underflow checks to transition
+  audits. Done in `src/demo/ammProof.ts` and `tests/demoAmmProof.test.ts`.
 - Add one-click AMM proof-pack runner and latest receipt selection. Done in
   `src/demo/chain.ts`, `src/demo/server.ts`, and `tests/demoAmmProof.test.ts`.
 - Add transaction-builder data models for create, buy, sell, and graduate.

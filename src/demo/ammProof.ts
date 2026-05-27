@@ -344,9 +344,27 @@ export const auditDemoAmmTradeTransition = ({
   const previousTokenReserve = BigInt(previousPool.tokenData.amount);
   const nextBchReserve = BigInt(nextPool.valueSats);
   const nextTokenReserve = BigInt(nextPool.tokenData.amount);
-  const inputAmount = BigInt(trade.inputAmount);
-  const outputAmount = BigInt(trade.outputAmount);
   const problems: string[] = [];
+  const inputAmount = integerAmountPattern.test(trade.inputAmount) ? BigInt(trade.inputAmount) : undefined;
+  const outputAmount = integerAmountPattern.test(trade.outputAmount) ? BigInt(trade.outputAmount) : undefined;
+  const tradeSideIsValid = isDemoAmmTradeSide(trade.side);
+
+  if (!tokenCategoryPattern.test(trade.category)) {
+    problems.push("AMM trade category is not a 32-byte transaction id.");
+  }
+  if (!tradeSideIsValid) {
+    problems.push("AMM trade side must be BCH_TO_TOKEN or TOKEN_TO_BCH.");
+  }
+  if (inputAmount === undefined) {
+    problems.push("AMM trade input amount must be an integer string.");
+  } else if (inputAmount === 0n) {
+    problems.push("AMM trade input amount must be greater than zero.");
+  }
+  if (outputAmount === undefined) {
+    problems.push("AMM trade output amount must be an integer string.");
+  } else if (outputAmount === 0n) {
+    problems.push("AMM trade output amount must be greater than zero.");
+  }
 
   if (previousPool.tokenData.category.toLowerCase() !== trade.category.toLowerCase()) {
     problems.push("Previous pool category does not match the trade marker.");
@@ -358,17 +376,30 @@ export const auditDemoAmmTradeTransition = ({
     problems.push("Swap transaction does not spend the previous pool UTXO.");
   }
 
-  const expectedBchReserve =
-    trade.side === "BCH_TO_TOKEN"
-      ? previousBchReserve + inputAmount
-      : previousBchReserve - outputAmount - tokenToBchPoolFeeSats;
-  const expectedTokenReserve =
-    trade.side === "BCH_TO_TOKEN" ? previousTokenReserve - outputAmount : previousTokenReserve + inputAmount;
+  let expectedBchReserve = previousBchReserve;
+  let expectedTokenReserve = previousTokenReserve;
+  const amountsUsable = inputAmount !== undefined && outputAmount !== undefined;
+  if (amountsUsable && tradeSideIsValid) {
+    if (trade.side === "BCH_TO_TOKEN") {
+      if (outputAmount > previousTokenReserve) {
+        problems.push("BCH-to-token trade output exceeds the previous token reserve.");
+      }
+      expectedBchReserve = previousBchReserve + inputAmount;
+      expectedTokenReserve = previousTokenReserve > outputAmount ? previousTokenReserve - outputAmount : 0n;
+    } else {
+      const bchDebit = outputAmount + tokenToBchPoolFeeSats;
+      if (bchDebit > previousBchReserve) {
+        problems.push("Token-to-BCH trade output plus pool fee exceeds the previous BCH reserve.");
+      }
+      expectedBchReserve = previousBchReserve > bchDebit ? previousBchReserve - bchDebit : 0n;
+      expectedTokenReserve = previousTokenReserve + inputAmount;
+    }
+  }
 
-  if (expectedBchReserve !== nextBchReserve) {
+  if (amountsUsable && tradeSideIsValid && expectedBchReserve !== nextBchReserve) {
     problems.push("Next BCH reserve does not match the trade marker delta.");
   }
-  if (expectedTokenReserve !== nextTokenReserve) {
+  if (amountsUsable && tradeSideIsValid && expectedTokenReserve !== nextTokenReserve) {
     problems.push("Next token reserve does not match the trade marker delta.");
   }
 

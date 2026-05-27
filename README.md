@@ -62,8 +62,9 @@ rows, can run a one-click AMM proof pack, can run a one-click launch-to-AMM
 proof pack, and links each trade, event, token, and contract transaction to a
 local transaction view under `/tx/<txid>`. Launch event pages show decoded event
 details. AMM swap transaction pages include a compact AMM/CashVM proof summary,
-decoded trade marker, reserve-transition audit, and P2SH redeem-script spend
-audit for that exact transaction. The launch-to-AMM receipt also exposes the
+decoded trade marker, reserve-transition audit, malformed-marker and reserve
+underflow checks, and P2SH redeem-script spend audit for that exact transaction.
+The launch-to-AMM receipt also exposes the
 expected and actual token-genesis and pool-funding outpoints so the UI proves
 the CashToken category was created from its pre-genesis output and the AMM pool
 was seeded from the bound CashToken genesis output. It also shows the token

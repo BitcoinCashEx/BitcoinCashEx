@@ -110,6 +110,9 @@ The local demo now proves the first on-chain AMM path on BCHN regtest:
   next CashVM pool UTXO, confirms the swap spends the previous pool outpoint,
   verifies BCH/token reserve deltas, and checks that the constant-product
   invariant does not decrease.
+- AMM transition audits reject malformed trade categories, invalid sides,
+  non-integer or zero input/output amounts, and trade outputs that would
+  underflow the previous BCH or token reserve.
 - Each AMM transition audit also extracts the final redeem-script push from the
   pool input script, hashes it as P2SH, and verifies it matches the previous
   CashVM pool locking script. It also verifies the revealed redeem script is the
@@ -237,7 +240,8 @@ covenant that enforces the AMM reserve transition inside CashVM.
 - `/tx/<txid>` acts as a local transaction explorer for the mined transaction;
   launch event pages include decoded event data, and AMM swap pages include a
   compact AMM/CashVM proof summary, decoded trade marker, reserve audit data,
-  and CashVM P2SH spend audit data with expected operator redeem script.
+  malformed-marker and reserve-underflow checks, and CashVM P2SH spend audit
+  data with expected operator redeem script.
 
 This proves backend-controlled local-chain execution, real CashToken genesis,
 operator-gated CashVM contract spends, CashVM-held AMM pool UTXOs, backend
@@ -263,7 +267,7 @@ npm run node:health
 Current local result:
 
 - 14 test files.
-- 71 unit tests.
+- 75 unit tests.
 - TypeScript strict mode passes.
 - Build passes.
 - npm audit reports 0 vulnerabilities.

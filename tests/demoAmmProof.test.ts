@@ -247,6 +247,137 @@ describe("demo AMM pool proof helpers", () => {
     ]);
   });
 
+  it("fails AMM reserve audits for malformed trade proof inputs without throwing", () => {
+    const previousPool = { ...pool, valueSats: "10000", tokenData: { ...pool.tokenData, amount: "1000" } };
+    const nextPool = {
+      ...pool,
+      height: 11,
+      txid: "cc".repeat(32),
+      valueSats: "10000",
+      tokenData: { ...pool.tokenData, amount: "1000" }
+    };
+
+    const audit = auditDemoAmmTradeTransition({
+      nextPool,
+      poolSpendConfirmed: true,
+      previousPool,
+      trade: {
+        category: "not-a-category",
+        inputAmount: "1.5",
+        outputAmount: "-1",
+        side: "SIDEWAYS" as never,
+        txid: nextPool.txid
+      }
+    });
+
+    expect(audit.status).toBe("failed");
+    expect(audit.problems).toEqual(
+      expect.arrayContaining([
+        "AMM trade category is not a 32-byte transaction id.",
+        "AMM trade side must be BCH_TO_TOKEN or TOKEN_TO_BCH.",
+        "AMM trade input amount must be an integer string.",
+        "AMM trade output amount must be an integer string."
+      ])
+    );
+  });
+
+  it("fails AMM reserve audits for zero-sized trade markers", () => {
+    const previousPool = { ...pool, valueSats: "10000", tokenData: { ...pool.tokenData, amount: "1000" } };
+    const nextPool = {
+      ...pool,
+      height: 11,
+      txid: "cc".repeat(32),
+      valueSats: "10000",
+      tokenData: { ...pool.tokenData, amount: "1000" }
+    };
+
+    const audit = auditDemoAmmTradeTransition({
+      nextPool,
+      poolSpendConfirmed: true,
+      previousPool,
+      trade: {
+        category: pool.tokenData.category,
+        inputAmount: "0",
+        outputAmount: "0",
+        side: "BCH_TO_TOKEN",
+        txid: nextPool.txid
+      }
+    });
+
+    expect(audit.status).toBe("failed");
+    expect(audit.problems).toEqual([
+      "AMM trade input amount must be greater than zero.",
+      "AMM trade output amount must be greater than zero."
+    ]);
+  });
+
+  it("fails AMM reserve audits when a BCH-to-token output exceeds token reserves", () => {
+    const previousPool = { ...pool, valueSats: "10000", tokenData: { ...pool.tokenData, amount: "1000" } };
+    const nextPool = {
+      ...pool,
+      height: 11,
+      txid: "cc".repeat(32),
+      valueSats: "11000",
+      tokenData: { ...pool.tokenData, amount: "0" }
+    };
+
+    const audit = auditDemoAmmTradeTransition({
+      nextPool,
+      poolSpendConfirmed: true,
+      previousPool,
+      trade: {
+        category: pool.tokenData.category,
+        inputAmount: "1000",
+        outputAmount: "1001",
+        side: "BCH_TO_TOKEN",
+        txid: nextPool.txid
+      }
+    });
+
+    expect(audit.expectedTokenReserve).toBe("0");
+    expect(audit.status).toBe("failed");
+    expect(audit.problems).toEqual(
+      expect.arrayContaining([
+        "BCH-to-token trade output exceeds the previous token reserve.",
+        "Constant-product invariant decreased after the trade."
+      ])
+    );
+  });
+
+  it("fails AMM reserve audits when a token-to-BCH output plus fee exceeds BCH reserves", () => {
+    const previousPool = { ...pool, valueSats: "10000", tokenData: { ...pool.tokenData, amount: "1000" } };
+    const nextPool = {
+      ...pool,
+      height: 11,
+      txid: "cc".repeat(32),
+      valueSats: "0",
+      tokenData: { ...pool.tokenData, amount: "1010" }
+    };
+
+    const audit = auditDemoAmmTradeTransition({
+      nextPool,
+      poolSpendConfirmed: true,
+      previousPool,
+      tokenToBchPoolFeeSats: 2n,
+      trade: {
+        category: pool.tokenData.category,
+        inputAmount: "10",
+        outputAmount: "9999",
+        side: "TOKEN_TO_BCH",
+        txid: nextPool.txid
+      }
+    });
+
+    expect(audit.expectedBchReserveSats).toBe("0");
+    expect(audit.status).toBe("failed");
+    expect(audit.problems).toEqual(
+      expect.arrayContaining([
+        "Token-to-BCH trade output plus pool fee exceeds the previous BCH reserve.",
+        "Constant-product invariant decreased after the trade."
+      ])
+    );
+  });
+
   it("builds a verified proof-pack receipt from a consecutive buy and sell audit pair", () => {
     const category = "aa".repeat(32);
 

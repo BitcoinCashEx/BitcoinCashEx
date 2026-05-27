@@ -55,6 +55,8 @@
 - Add static checks for unsafe RPC calls, secrets, and mainnet broadcast paths.
 - [x] Add backend-operator redeem-script verification to AMM CashVM spend
   audits.
+- [x] Add malformed trade marker and reserve-underflow checks to AMM transition
+  audits.
 - Add reproducible deployment documentation.
 - Add external review checkpoints before any mainnet release.
 
