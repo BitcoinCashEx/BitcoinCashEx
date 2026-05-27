@@ -1,6 +1,7 @@
 import { hexToBin, privateKeyToP2pkhCashAddress, privateKeyToP2pkhLockingBytecode } from "@bitauth/libauth";
 import { loadConfig } from "../config.js";
 import { BchnRpcClient } from "../node/rpc.js";
+import { broadcastAcceptedRawTransaction } from "../node/transactions.js";
 import {
   auditDemoAmmTradeTransition,
   buildDemoAmmProofPackReceipt,
@@ -111,11 +112,6 @@ interface SignedRawTransaction {
   readonly complete: boolean;
   readonly errors?: readonly unknown[];
   readonly hex: string;
-}
-
-interface TestMempoolAcceptResult {
-  readonly allowed: boolean;
-  readonly "reject-reason"?: string;
 }
 
 export interface DemoChainSnapshot {
@@ -585,12 +581,7 @@ const signAndSubmitMany = async (raw: string, utxos: readonly SpendableUtxo[]): 
     throw new Error(`Demo transaction signing failed: ${JSON.stringify(signed.errors ?? [])}`);
   }
 
-  const [acceptance] = await rpc.call<readonly TestMempoolAcceptResult[]>("testmempoolaccept", [[signed.hex]]);
-  if (acceptance === undefined || !acceptance.allowed) {
-    throw new Error(`Demo transaction rejected: ${acceptance?.["reject-reason"] ?? "unknown reason"}`);
-  }
-
-  return rpc.call<string>("sendrawtransaction", [signed.hex]);
+  return broadcastAcceptedRawTransaction(rpc, signed.hex);
 };
 
 const activeAmmPool = async (category?: string): Promise<DemoAmmPoolUtxo | undefined> =>

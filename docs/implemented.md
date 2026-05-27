@@ -209,6 +209,8 @@ covenant that enforces the AMM reserve transition inside CashVM.
   `BCH_ALLOW_MAINNET_BROADCAST=true`.
 - Raw transaction broadcasting flows through `testmempoolaccept` first.
 - Rejected raw transactions are not broadcast.
+- Raw transaction helpers reject malformed transaction hex, unexpected or
+  malformed `testmempoolaccept` response shapes, and malformed broadcast txids.
 
 ## Local Proof UI
 
@@ -283,7 +285,7 @@ npm run node:health
 Current local result:
 
 - 16 test files.
-- 92 unit tests.
+- 95 unit tests.
 - TypeScript strict mode passes.
 - Build passes.
 - npm audit reports 0 vulnerabilities.

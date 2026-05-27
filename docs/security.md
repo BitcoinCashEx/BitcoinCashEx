@@ -10,6 +10,8 @@
 - BCHN RPC responses are validated as JSON-RPC objects before their `result` is
   trusted; malformed node responses fail closed as RPC errors.
 - Mainnet raw transaction broadcast is blocked in code unless explicitly enabled.
+- Raw transaction broadcast helpers reject malformed raw transaction hex,
+  malformed `testmempoolaccept` responses, and malformed broadcast txids.
 - Demo HTTP endpoints that prepare backend-signed transactions enforce bounded
   JSON object bodies, `application/json` content type, positive integer-string
   amounts, and a fixed maximum amount precision before submitting to BCHN.

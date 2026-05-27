@@ -7,11 +7,11 @@ describe("transaction safety helpers", () => {
     const rpc: Pick<BchnRpcClient, "call"> = {
       call: async <T>(method: BchnRpcMethod): Promise<T> => {
         expect(method).toBe("testmempoolaccept");
-        return [{ allowed: true, txid: "abc" }] as T;
+        return [{ allowed: true, txid: "AA".repeat(32) }] as T;
       }
     };
 
-    await expect(testRawTransactionAccept(rpc, "00")).resolves.toEqual({ allowed: true, txid: "abc" });
+    await expect(testRawTransactionAccept(rpc, "00")).resolves.toEqual({ allowed: true, txid: "aa".repeat(32) });
   });
 
   it("broadcasts only after mempool acceptance", async () => {
@@ -20,12 +20,12 @@ describe("transaction safety helpers", () => {
       call: async <T>(method: BchnRpcMethod): Promise<T> => {
         calls.push(method);
         if (method === "testmempoolaccept") return [{ allowed: true }] as T;
-        if (method === "sendrawtransaction") return "txid" as T;
+        if (method === "sendrawtransaction") return "BB".repeat(32) as T;
         throw new Error(`unexpected method ${method}`);
       }
     };
 
-    await expect(broadcastAcceptedRawTransaction(rpc, "00")).resolves.toBe("txid");
+    await expect(broadcastAcceptedRawTransaction(rpc, "00")).resolves.toBe("bb".repeat(32));
     expect(calls).toEqual(["testmempoolaccept", "sendrawtransaction"]);
   });
 
@@ -40,5 +40,49 @@ describe("transaction safety helpers", () => {
 
     await expect(broadcastAcceptedRawTransaction(rpc, "00")).rejects.toThrow("mandatory-script");
     expect(calls).toEqual(["testmempoolaccept"]);
+  });
+
+  it("rejects malformed raw transaction hex before RPC calls", async () => {
+    const calls: BchnRpcMethod[] = [];
+    const rpc: Pick<BchnRpcClient, "call"> = {
+      call: async <T>(method: BchnRpcMethod): Promise<T> => {
+        calls.push(method);
+        return [] as T;
+      }
+    };
+
+    await expect(testRawTransactionAccept(rpc, "")).rejects.toThrow("non-empty even-length hex");
+    await expect(testRawTransactionAccept(rpc, "0")).rejects.toThrow("non-empty even-length hex");
+    await expect(testRawTransactionAccept(rpc, "zz")).rejects.toThrow("non-empty even-length hex");
+    expect(calls).toEqual([]);
+  });
+
+  it("rejects malformed testmempoolaccept responses", async () => {
+    const rpcWithExtraResult: Pick<BchnRpcClient, "call"> = {
+      call: async <T>(): Promise<T> => [{ allowed: true }, { allowed: true }] as T
+    };
+    await expect(testRawTransactionAccept(rpcWithExtraResult, "00")).rejects.toThrow("result count");
+
+    const rpcWithBadResult: Pick<BchnRpcClient, "call"> = {
+      call: async <T>(): Promise<T> => [{ allowed: "yes" }] as T
+    };
+    await expect(testRawTransactionAccept(rpcWithBadResult, "00")).rejects.toThrow("malformed testmempoolaccept");
+
+    const rpcWithBadTxid: Pick<BchnRpcClient, "call"> = {
+      call: async <T>(): Promise<T> => [{ allowed: true, txid: "not-a-txid" }] as T
+    };
+    await expect(testRawTransactionAccept(rpcWithBadTxid, "00")).rejects.toThrow("transaction id");
+  });
+
+  it("rejects malformed sendrawtransaction txids", async () => {
+    const rpc: Pick<BchnRpcClient, "call"> = {
+      call: async <T>(method: BchnRpcMethod): Promise<T> => {
+        if (method === "testmempoolaccept") return [{ allowed: true }] as T;
+        if (method === "sendrawtransaction") return "not-a-txid" as T;
+        throw new Error(`unexpected method ${method}`);
+      }
+    };
+
+    await expect(broadcastAcceptedRawTransaction(rpc, "00")).rejects.toThrow("malformed transaction id");
   });
 });
