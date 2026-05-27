@@ -27,6 +27,8 @@
 - BCHN regtest AMM pool proof that stores real CashTokens and BCH in a CashVM
   P2SH UTXO, then spends and recreates that pool after backend-submitted swaps
   in both BCH-to-token and token-to-BCH directions.
+- BCHN BCH amount values are checked for finite whole-satoshi monetary range
+  before conversion into integer sats.
 - BCHN regtest launch-to-AMM proof that binds a pump-style launch to a real
   CashToken category with an on-chain TOKEN event, migrates the launch
   graduation BCH/token amounts into a CashVM AMM pool, proves the pool spent the
@@ -298,8 +300,8 @@ npm run node:health
 
 Current local result:
 
-- 17 test files.
-- 112 unit tests.
+- 18 test files.
+- 116 unit tests.
 - TypeScript strict mode passes.
 - Build passes.
 - npm audit reports 0 vulnerabilities.

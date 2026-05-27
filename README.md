@@ -66,6 +66,8 @@ decoded trade marker, reserve-transition audit, malformed-marker and reserve
 underflow checks, and P2SH redeem-script spend audit for that exact transaction.
 Pool summaries, quotes, and audits validate token categories and BCH reserve
 strings before integer reserve math.
+BCHN BCH amount values are checked for finite whole-satoshi monetary range
+before conversion into integer sats.
 AMM funding and token-sell selectors fail closed on non-positive trade amounts,
 malformed token data, and NFT-bearing token UTXOs before the backend prepares a
 spend.

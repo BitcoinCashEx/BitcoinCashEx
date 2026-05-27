@@ -25,6 +25,7 @@ import {
   type DemoAmmTransitionAudit,
   type DemoLaunchAmmProofPackReceipt
 } from "./ammProof.js";
+import { bchToSats, satsToBch } from "./amounts.js";
 import { encodeCashVmProofText, parseCashVmProofScript } from "./cashVmProof.js";
 import { extractDemoCashVmProofsFromTx, type DemoCashVmProof } from "./cashVmProofScanner.js";
 import {
@@ -191,13 +192,6 @@ const defaultDemoLaunchCreateInput = {
   virtualTokenReserve: 1_000_000n
 } as const satisfies DemoEventInput;
 
-const satsToBch = (sats: bigint): string => {
-  const whole = sats / 100_000_000n;
-  const fraction = (sats % 100_000_000n).toString().padStart(8, "0");
-  return `${whole}.${fraction}`;
-};
-
-const bchToSats = (value: number): bigint => BigInt(Math.round(value * 100_000_000));
 const dustLimitSats = 546n;
 
 const selectSpendableUtxo = (

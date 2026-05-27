@@ -14,6 +14,8 @@
 - Raw transaction broadcast helpers reject malformed raw transaction hex,
   malformed `testmempoolaccept` responses, malformed fee/vsize fields,
   malformed broadcast txids, and mismatched accepted-versus-broadcast txids.
+- BCHN BCH amount values are checked for finite whole-satoshi monetary range
+  before conversion into integer sats.
 - Demo HTTP endpoints that prepare backend-signed transactions enforce bounded
   JSON object bodies, `application/json` content type, positive integer-string
   amounts, and a fixed maximum amount precision before submitting to BCHN.
