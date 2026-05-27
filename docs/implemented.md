@@ -238,6 +238,8 @@ covenant that enforces the AMM reserve transition inside CashVM.
   proofs.
 - On-chain launch event decoding rejects malformed field counts, invalid CREATE
   symbols, and non-positive BUY/SELL amounts before replaying state.
+- OP_RETURN event parsing rejects malformed hex, truncated pushdata, and
+  trailing script bytes before decoding launch events.
 - `/api/state.launchAmmProofPack` verifies the launch CREATE/GRADUATE events,
   TOKEN binding event, real token genesis output, CashVM pool, AMM proof pair,
   migration seed amounts, token genesis source outpoint, pool funding outpoint,
@@ -287,7 +289,7 @@ npm run node:health
 Current local result:
 
 - 16 test files.
-- 97 unit tests.
+- 98 unit tests.
 - TypeScript strict mode passes.
 - Build passes.
 - npm audit reports 0 vulnerabilities.

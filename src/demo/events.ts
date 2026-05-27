@@ -191,6 +191,8 @@ export const eventTextToHex = (text: string): string => Buffer.from(text, "utf8"
 export const eventHexToText = (hex: string): string => Buffer.from(hex, "hex").toString("utf8");
 
 export const parseOpReturnText = (scriptHex: string): string | undefined => {
+  if (!/^(?:[0-9a-f]{2})*$/i.test(scriptHex)) return undefined;
+
   const bytes = Buffer.from(scriptHex, "hex");
   if (bytes[0] !== 0x6a || bytes[1] === undefined) return undefined;
 
@@ -203,6 +205,7 @@ export const parseOpReturnText = (scriptHex: string): string | undefined => {
     offset = 3;
   }
   if (length === undefined || bytes.length < offset + length) return undefined;
+  if (bytes.length !== offset + length) return undefined;
 
   return bytes.subarray(offset, offset + length).toString("utf8");
 };

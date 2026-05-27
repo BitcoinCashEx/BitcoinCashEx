@@ -47,6 +47,16 @@ describe("demo on-chain event replay", () => {
     });
   });
 
+  it("rejects malformed OP_RETURN script bytecode", () => {
+    const payload = Buffer.from("BCHEX1|BUY|100000", "utf8");
+    const script = Buffer.concat([Buffer.from([0x6a, payload.length]), payload]).toString("hex");
+
+    expect(parseOpReturnText("zz")).toBeUndefined();
+    expect(parseOpReturnText(script.slice(0, -2))).toBeUndefined();
+    expect(parseOpReturnText(`${script}00`)).toBeUndefined();
+    expect(parseOpReturnEvent(`${script}00`)).toBeUndefined();
+  });
+
   it("parses long PUSHDATA1 OP_RETURN launch binding text", () => {
     const text = encodeDemoEventText({
       category: "aa".repeat(32),

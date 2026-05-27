@@ -17,6 +17,8 @@
   amounts, and a fixed maximum amount precision before submitting to BCHN.
 - On-chain demo event decoding rejects malformed field counts, invalid symbols,
   and non-positive trade amounts before launch replay.
+- OP_RETURN event parsing rejects malformed hex, truncated pushdata, and
+  trailing script bytes before decoding launch events.
 - Runtime dependencies start with `@bitauth/libauth`, which has no runtime
   dependencies.
 - `.env` is ignored and `.env.example` contains only development credentials.
