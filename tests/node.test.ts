@@ -4,6 +4,14 @@ import { getNodeReadiness } from "../src/node/health.js";
 import { BchnRpcClient, type BchnRpcMethod } from "../src/node/rpc.js";
 
 describe("BCHN RPC safety", () => {
+  const regtestConfig = () =>
+    loadConfig({
+      BCH_NETWORK: "regtest",
+      BCH_RPC_PASSWORD: "password",
+      BCH_RPC_URL: "http://127.0.0.1:18443",
+      BCH_RPC_USER: "user"
+    });
+
   it("blocks mainnet broadcasts unless explicitly enabled", async () => {
     const config = loadConfig({
       BCH_ALLOW_MAINNET_BROADCAST: "false",
@@ -17,6 +25,44 @@ describe("BCHN RPC safety", () => {
     });
 
     await expect(rpc.call("sendrawtransaction", ["00"])).rejects.toThrow("Mainnet broadcast is disabled");
+  });
+
+  it("returns JSON-RPC results and preserves BCHN error codes", async () => {
+    const okRpc = new BchnRpcClient(
+      regtestConfig(),
+      async () => new Response(JSON.stringify({ error: null, id: "bitcoincashex", result: 123 }))
+    );
+    await expect(okRpc.call("getblockcount")).resolves.toBe(123);
+
+    const errorRpc = new BchnRpcClient(
+      regtestConfig(),
+      async () =>
+        new Response(JSON.stringify({ error: { code: -5, message: "No such mempool transaction" }, id: "x", result: null }))
+    );
+    await expect(errorRpc.call("getrawtransaction", ["00"])).rejects.toMatchObject({
+      code: -5,
+      message: "No such mempool transaction"
+    });
+  });
+
+  it("rejects malformed BCHN JSON-RPC responses", async () => {
+    const missingResultRpc = new BchnRpcClient(
+      regtestConfig(),
+      async () => new Response(JSON.stringify({ error: null, id: "bitcoincashex" }))
+    );
+    await expect(missingResultRpc.call("getblockcount")).rejects.toThrow("without a result");
+
+    const malformedErrorRpc = new BchnRpcClient(
+      regtestConfig(),
+      async () => new Response(JSON.stringify({ error: { message: "bad" }, id: "bitcoincashex", result: null }))
+    );
+    await expect(malformedErrorRpc.call("getblockcount")).rejects.toThrow("malformed JSON-RPC error");
+  });
+
+  it("rejects non-json BCHN RPC responses", async () => {
+    const rpc = new BchnRpcClient(regtestConfig(), async () => new Response("not-json"));
+
+    await expect(rpc.call("getblockcount")).rejects.toThrow("invalid JSON");
   });
 
   it("reports readiness from BCHN RPC responses", async () => {

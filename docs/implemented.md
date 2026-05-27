@@ -15,6 +15,8 @@
 - BCHN RPC configuration rejects ambiguous boolean switches, unsupported RPC
   URL protocols, URL-embedded credentials, empty credentials, and invalid
   timeout values before any RPC calls are made.
+- BCHN RPC responses are parsed as validated JSON-RPC objects before `result`
+  values are trusted, while malformed responses fail closed as RPC errors.
 
 ## DeFi Core
 
@@ -281,7 +283,7 @@ npm run node:health
 Current local result:
 
 - 16 test files.
-- 89 unit tests.
+- 92 unit tests.
 - TypeScript strict mode passes.
 - Build passes.
 - npm audit reports 0 vulnerabilities.

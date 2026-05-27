@@ -74,6 +74,7 @@ type, and positive integer-string amounts before preparing transactions.
 BCHN RPC configuration fails fast on ambiguous boolean switches, unsupported
 RPC URL protocols, URL-embedded credentials, empty credentials, and invalid
 timeouts.
+BCHN JSON-RPC responses are validated before returned results are trusted.
 Proof-pack receipts also reject malformed categories, malformed transaction
 ids, and self-referential audit pairs.
 The launch-to-AMM receipt also exposes the

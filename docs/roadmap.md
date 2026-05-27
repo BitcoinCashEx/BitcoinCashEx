@@ -65,6 +65,7 @@
   demo POST actions.
 - [x] Add fail-fast BCHN RPC environment validation for booleans, URLs,
   credentials, and timeouts.
+- [x] Validate BCHN JSON-RPC response shape before trusting returned results.
 - [x] Add forged audit-pair and malformed txid checks to AMM proof-pack
   receipts.
 - Add reproducible deployment documentation.

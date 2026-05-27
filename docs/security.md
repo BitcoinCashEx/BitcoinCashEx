@@ -7,6 +7,8 @@
 - RPC ports are published only on `127.0.0.1`.
 - BCHN RPC configuration fails fast on invalid booleans, unsupported URL
   protocols, credential-bearing URLs, empty credentials, and invalid timeouts.
+- BCHN RPC responses are validated as JSON-RPC objects before their `result` is
+  trusted; malformed node responses fail closed as RPC errors.
 - Mainnet raw transaction broadcast is blocked in code unless explicitly enabled.
 - Demo HTTP endpoints that prepare backend-signed transactions enforce bounded
   JSON object bodies, `application/json` content type, positive integer-string
