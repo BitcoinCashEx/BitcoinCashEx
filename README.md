@@ -85,6 +85,8 @@ CashVM proof marker and P2SH scriptSig parsing reject malformed bytecode before
 proving contract spends.
 CashVM proof scanning never falls back to a trusted local redeem script when
 the on-chain spend input is missing or malformed.
+AMM marker parsing rejects malformed bytecode and zero-sized trade markers
+before reserve audits build proof-pack receipts.
 Proof-pack receipts also reject malformed categories, malformed transaction
 ids, and self-referential audit pairs.
 The launch-to-AMM receipt also exposes the

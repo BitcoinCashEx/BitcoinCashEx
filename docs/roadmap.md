@@ -76,6 +76,8 @@
   proving contract spends.
 - [x] Require on-chain CashVM proof spends to reveal a parseable redeem script
   instead of falling back to trusted local contract data.
+- [x] Reject malformed AMM marker bytecode and zero-sized AMM trade markers
+  before reserve audits build proof-pack receipts.
 - [x] Add forged audit-pair and malformed txid checks to AMM proof-pack
   receipts.
 - Add reproducible deployment documentation.

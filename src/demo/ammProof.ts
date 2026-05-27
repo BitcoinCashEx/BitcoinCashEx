@@ -159,6 +159,9 @@ const normalizeDemoAmmTradeAmount = (amount: bigint | string, label: string): st
   if (!integerAmountPattern.test(text)) {
     throw new Error(`AMM trade marker ${label} amount must be an integer string.`);
   }
+  if (BigInt(text) === 0n) {
+    throw new Error(`AMM trade marker ${label} amount must be positive.`);
+  }
   return text;
 };
 
@@ -187,6 +190,7 @@ const extractDemoAmmMarkerScriptText = (scriptHex: string): string | undefined =
 
   const payloadHex = script.slice(cursor, cursor + pushLength * 2);
   if (payloadHex.length !== pushLength * 2) return undefined;
+  if (script.length !== cursor + pushLength * 2) return undefined;
   return Buffer.from(payloadHex, "hex").toString("utf8");
 };
 
@@ -233,6 +237,7 @@ export const parseDemoAmmTradeMarkerText = (text: string): DemoAmmTradeMarker | 
   if (!isDemoAmmTradeSide(side)) return undefined;
   if (!tokenCategoryPattern.test(category)) return undefined;
   if (!integerAmountPattern.test(inputAmount) || !integerAmountPattern.test(outputAmount)) return undefined;
+  if (BigInt(inputAmount) === 0n || BigInt(outputAmount) === 0n) return undefined;
 
   return {
     category: category.toLowerCase(),

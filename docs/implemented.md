@@ -244,6 +244,8 @@ covenant that enforces the AMM reserve transition inside CashVM.
   truncated pushdata before proving contract spends.
 - CashVM proof scanning never falls back to a trusted local redeem script when
   the on-chain spend input is missing or malformed.
+- AMM marker parsing rejects malformed bytecode and zero-sized trade markers
+  before reserve audits build proof-pack receipts.
 - `/api/state.launchAmmProofPack` verifies the launch CREATE/GRADUATE events,
   TOKEN binding event, real token genesis output, CashVM pool, AMM proof pair,
   migration seed amounts, token genesis source outpoint, pool funding outpoint,
@@ -293,7 +295,7 @@ npm run node:health
 Current local result:
 
 - 17 test files.
-- 105 unit tests.
+- 106 unit tests.
 - TypeScript strict mode passes.
 - Build passes.
 - npm audit reports 0 vulnerabilities.

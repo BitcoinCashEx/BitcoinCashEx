@@ -23,6 +23,8 @@
   truncated pushdata before proving contract spends.
 - CashVM proof scanning never falls back to a trusted local redeem script when
   the on-chain spend input is missing or malformed.
+- AMM marker parsing rejects malformed bytecode and zero-sized trade markers
+  before reserve audits build proof-pack receipts.
 - Runtime dependencies start with `@bitauth/libauth`, which has no runtime
   dependencies.
 - `.env` is ignored and `.env.example` contains only development credentials.

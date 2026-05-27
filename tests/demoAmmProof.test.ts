@@ -145,6 +145,19 @@ describe("demo AMM pool proof helpers", () => {
     expect(parseDemoAmmTradeMarkerScript(opReturnMarkerScript(markerText))).toEqual(expectedMarker);
   });
 
+  it("rejects malformed AMM marker OP_RETURN bytecode", () => {
+    const markerText = encodeDemoAmmTradeMarkerText("BCH_TO_TOKEN", "aa".repeat(32), 1_000n, "250");
+    const script = opReturnMarkerScript(markerText);
+    const payload = Buffer.from(markerText, "utf8");
+    const unsupportedDirectPush = Buffer.concat([Buffer.from([0x6a, payload.length]), payload]).toString("hex");
+
+    expect(payload.length).toBeGreaterThan(0x4b);
+    expect(parseDemoAmmTradeMarkerScript("zz")).toBeUndefined();
+    expect(parseDemoAmmPoolMarkerScript(script.slice(0, -2))).toBeUndefined();
+    expect(parseDemoAmmTradeMarkerScript(`${script}00`)).toBeUndefined();
+    expect(parseDemoAmmTradeMarkerScript(unsupportedDirectPush)).toBeUndefined();
+  });
+
   it("rejects invalid AMM trade markers", () => {
     const category = "aa".repeat(32);
     const invalidMarkerTexts = [
@@ -153,6 +166,8 @@ describe("demo AMM pool proof helpers", () => {
       `${demoAmmPoolMarkerPrefix}|TRADE|SIDEWAYS|${category}|100|1`,
       `${demoAmmPoolMarkerPrefix}|TRADE|BCH_TO_TOKEN|bad|100|1`,
       `${demoAmmPoolMarkerPrefix}|TRADE|BCH_TO_TOKEN|${category}|1.5|1`,
+      `${demoAmmPoolMarkerPrefix}|TRADE|BCH_TO_TOKEN|${category}|0|1`,
+      `${demoAmmPoolMarkerPrefix}|TRADE|BCH_TO_TOKEN|${category}|1|0`,
       `${demoAmmPoolMarkerPrefix}|TRADE|BCH_TO_TOKEN|${category}|1|-1`
     ];
 
@@ -163,6 +178,8 @@ describe("demo AMM pool proof helpers", () => {
       expect(parseDemoAmmPoolMarkerScript(opReturnMarkerScript(markerText))).toBeUndefined();
     }
     expect(() => encodeDemoAmmTradeMarkerText("BCH_TO_TOKEN", category, "1.5", "1")).toThrow("input amount");
+    expect(() => encodeDemoAmmTradeMarkerText("BCH_TO_TOKEN", category, 0n, "1")).toThrow("positive");
+    expect(() => encodeDemoAmmTradeMarkerText("BCH_TO_TOKEN", category, "1", "0")).toThrow("positive");
     expect(() => encodeDemoAmmTradeMarkerText("SIDEWAYS" as never, category, "1", "1")).toThrow("side");
   });
 
