@@ -71,6 +71,9 @@ describe("demo AMM pool proof helpers", () => {
 
   it("rejects inactive or malformed pool UTXOs", () => {
     expect(() => summarizeDemoAmmPool({ ...pool, active: false })).toThrow("inactive");
+    expect(() => summarizeDemoAmmPool({ ...pool, tokenData: { ...pool.tokenData, category: "not-a-category" } })).toThrow(
+      "32-byte transaction id"
+    );
     expect(() => summarizeDemoAmmPool({ ...pool, tokenData: { category: "aa".repeat(32) } })).toThrow(
       "token amount"
     );
@@ -82,10 +85,16 @@ describe("demo AMM pool proof helpers", () => {
     ).toThrow("fungible-only");
   });
 
+  it("rejects malformed BCH reserve strings before AMM quote math", () => {
+    expect(() => quoteDemoAmmBuy({ ...pool, valueSats: "1.5" }, 1_000n, 30)).toThrow("BCH reserve");
+    expect(() => quoteDemoAmmSell({ ...pool, valueSats: "-1" }, 1n, 30)).toThrow("BCH reserve");
+  });
+
   it("selects a wallet UTXO large enough to fund the AMM swap", () => {
     const utxos = [{ amountSats: 1_000n }, { amountSats: 1_003_546n }, { amountSats: 1_003_547n }];
 
     expect(selectDemoAmmSwapFundingUtxo(utxos, 1_000_000n)).toEqual({ amountSats: 1_003_547n });
+    expect(selectDemoAmmSwapFundingUtxo(utxos, 0n)).toBeUndefined();
   });
 
   it("selects a user token UTXO large enough for an AMM token sell", () => {
@@ -96,6 +105,19 @@ describe("demo AMM pool proof helpers", () => {
     ];
 
     expect(selectDemoAmmSellTokenUtxo(utxos, "aa".repeat(32), 50n)).toEqual(utxos[2]);
+  });
+
+  it("rejects malformed or authority-bearing token UTXOs for AMM token sells", () => {
+    const utxos = [
+      { tokenData: { amount: "75", category: "not-a-category" } },
+      { tokenData: { amount: "not-tokens", category: "aa".repeat(32) } },
+      { tokenData: { amount: "75", category: "aa".repeat(32), nft: { capability: "minting" as const, commitment: "00" } } },
+      { tokenData: { amount: "75", category: "aa".repeat(32) } }
+    ];
+
+    expect(selectDemoAmmSellTokenUtxo(utxos, "aa".repeat(32), 75n)).toEqual(utxos[3]);
+    expect(selectDemoAmmSellTokenUtxo(utxos, "aa".repeat(32), 0n)).toBeUndefined();
+    expect(selectDemoAmmSellTokenUtxo(utxos, "not-a-category", 75n)).toBeUndefined();
   });
 
   it("keeps legacy AMM pool marker compatibility", () => {
@@ -279,6 +301,32 @@ describe("demo AMM pool proof helpers", () => {
         "AMM trade output amount must be an integer string."
       ])
     );
+  });
+
+  it("rejects malformed BCH reserve strings before AMM reserve audits", () => {
+    const previousPool = { ...pool, valueSats: "not-sats", tokenData: { ...pool.tokenData, amount: "1000" } };
+    const nextPool = {
+      ...pool,
+      height: 11,
+      txid: "cc".repeat(32),
+      valueSats: "10000",
+      tokenData: { ...pool.tokenData, amount: "1000" }
+    };
+
+    expect(() =>
+      auditDemoAmmTradeTransition({
+        nextPool,
+        poolSpendConfirmed: true,
+        previousPool,
+        trade: {
+          category: pool.tokenData.category,
+          inputAmount: "1000",
+          outputAmount: "90",
+          side: "BCH_TO_TOKEN",
+          txid: nextPool.txid
+        }
+      })
+    ).toThrow("AMM pool BCH reserve must be an integer string.");
   });
 
   it("fails AMM reserve audits for zero-sized trade markers", () => {

@@ -57,6 +57,10 @@
   audits.
 - [x] Add malformed trade marker and reserve-underflow checks to AMM transition
   audits.
+- [x] Add explicit pool reserve and token category validation before AMM quote
+  and audit math.
+- [x] Add fail-closed AMM funding and token-sell UTXO selection for malformed
+  token data, non-positive amounts, and NFT-bearing token outputs.
 - [x] Add forged audit-pair and malformed txid checks to AMM proof-pack
   receipts.
 - Add reproducible deployment documentation.

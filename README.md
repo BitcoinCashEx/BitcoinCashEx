@@ -64,6 +64,11 @@ local transaction view under `/tx/<txid>`. Launch event pages show decoded event
 details. AMM swap transaction pages include a compact AMM/CashVM proof summary,
 decoded trade marker, reserve-transition audit, malformed-marker and reserve
 underflow checks, and P2SH redeem-script spend audit for that exact transaction.
+Pool summaries, quotes, and audits validate token categories and BCH reserve
+strings before integer reserve math.
+AMM funding and token-sell selectors fail closed on non-positive trade amounts,
+malformed token data, and NFT-bearing token UTXOs before the backend prepares a
+spend.
 Proof-pack receipts also reject malformed categories, malformed transaction
 ids, and self-referential audit pairs.
 The launch-to-AMM receipt also exposes the

@@ -104,6 +104,12 @@ Reasons to start here:
   `src/demo/chain.ts`, and `src/demo/server.ts`.
 - Add malformed AMM trade marker and reserve-underflow checks to transition
   audits. Done in `src/demo/ammProof.ts` and `tests/demoAmmProof.test.ts`.
+- Add explicit AMM pool BCH reserve and token category validation before quote
+  and audit math. Done in `src/demo/ammProof.ts` and
+  `tests/demoAmmProof.test.ts`.
+- Add fail-closed AMM funding and token-sell UTXO selection for non-positive
+  trade amounts, malformed token data, and NFT-bearing token outputs. Done in
+  `src/demo/ammProof.ts` and `tests/demoAmmProof.test.ts`.
 - Add forged audit-pair and malformed txid checks to AMM proof-pack receipts.
   Done in `src/demo/ammProof.ts` and `tests/demoAmmProof.test.ts`.
 - Add one-click AMM proof-pack runner and latest receipt selection. Done in

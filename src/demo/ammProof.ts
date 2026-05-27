@@ -266,6 +266,9 @@ export function requireDemoAmmPoolTokenData(
   tokenData: DemoTokenData,
   expectedCategory?: string
 ): asserts tokenData is DemoTokenData & { readonly amount: string; readonly nft?: undefined } {
+  if (!tokenCategoryPattern.test(tokenData.category)) {
+    throw new Error("AMM pool token category must be a 32-byte transaction id.");
+  }
   if (tokenData.amount === undefined || !integerAmountPattern.test(tokenData.amount)) {
     throw new Error("AMM pool token amount must be present.");
   }
@@ -277,14 +280,19 @@ export function requireDemoAmmPoolTokenData(
   }
 }
 
+const requireDemoAmmPoolBchReserve = (valueSats: string): bigint => {
+  if (!integerAmountPattern.test(valueSats)) {
+    throw new Error("AMM pool BCH reserve must be an integer string.");
+  }
+  return BigInt(valueSats);
+};
+
 export const summarizeDemoAmmPool = (pool: DemoAmmPoolUtxo): DemoAmmPoolSummary => {
   if (!pool.active) {
     throw new Error("Cannot summarize an inactive AMM pool UTXO.");
   }
   requireDemoAmmPoolTokenData(pool.tokenData);
-  if (!/^[0-9]+$/.test(pool.valueSats)) {
-    throw new Error("AMM pool BCH reserve must be an integer string.");
-  }
+  requireDemoAmmPoolBchReserve(pool.valueSats);
 
   return {
     bchReserveSats: pool.valueSats,
@@ -300,10 +308,11 @@ export const quoteDemoAmmBuy = (
   feeBps: number
 ) => {
   requireDemoAmmPoolTokenData(pool.tokenData);
+  const bchReserve = requireDemoAmmPoolBchReserve(pool.valueSats);
 
   return quoteConstantProductSwap(
     bchAmountInSats,
-    BigInt(pool.valueSats),
+    bchReserve,
     BigInt(pool.tokenData.amount),
     feeBps
   );
@@ -315,11 +324,12 @@ export const quoteDemoAmmSell = (
   feeBps: number
 ) => {
   requireDemoAmmPoolTokenData(pool.tokenData);
+  const bchReserve = requireDemoAmmPoolBchReserve(pool.valueSats);
 
   return quoteConstantProductSwap(
     tokenAmountIn,
     BigInt(pool.tokenData.amount),
-    BigInt(pool.valueSats),
+    bchReserve,
     feeBps
   );
 };
@@ -340,9 +350,9 @@ export const auditDemoAmmTradeTransition = ({
   requireDemoAmmPoolTokenData(previousPool.tokenData);
   requireDemoAmmPoolTokenData(nextPool.tokenData);
 
-  const previousBchReserve = BigInt(previousPool.valueSats);
+  const previousBchReserve = requireDemoAmmPoolBchReserve(previousPool.valueSats);
   const previousTokenReserve = BigInt(previousPool.tokenData.amount);
-  const nextBchReserve = BigInt(nextPool.valueSats);
+  const nextBchReserve = requireDemoAmmPoolBchReserve(nextPool.valueSats);
   const nextTokenReserve = BigInt(nextPool.tokenData.amount);
   const problems: string[] = [];
   const inputAmount = integerAmountPattern.test(trade.inputAmount) ? BigInt(trade.inputAmount) : undefined;
@@ -735,6 +745,8 @@ export const selectDemoAmmSwapFundingUtxo = <Utxo extends { readonly amountSats:
   utxos: readonly Utxo[],
   bchAmountInSats: bigint
 ): Utxo | undefined => {
+  if (bchAmountInSats <= 0n) return undefined;
+
   const requiredWalletSats =
     bchAmountInSats + demoAmmTokenOutputDustSats + demoAmmSwapFeeSats + demoAmmWalletChangeDustSats + 1n;
   return utxos.find((utxo) => utxo.amountSats >= requiredWalletSats);
@@ -744,9 +756,16 @@ export const selectDemoAmmSellTokenUtxo = <Utxo extends { readonly tokenData?: D
   utxos: readonly Utxo[],
   category: string,
   tokenAmountIn: bigint
-): Utxo | undefined =>
-  utxos.find((utxo) => {
+): Utxo | undefined => {
+  if (tokenAmountIn <= 0n || !tokenCategoryPattern.test(category)) return undefined;
+
+  const normalizedCategory = category.toLowerCase();
+  return utxos.find((utxo) => {
     if (utxo.tokenData?.amount === undefined) return false;
-    if (utxo.tokenData.category.toLowerCase() !== category.toLowerCase()) return false;
+    if (!integerAmountPattern.test(utxo.tokenData.amount)) return false;
+    if (!tokenCategoryPattern.test(utxo.tokenData.category)) return false;
+    if (utxo.tokenData.category.toLowerCase() !== normalizedCategory) return false;
+    if (utxo.tokenData.nft !== undefined) return false;
     return BigInt(utxo.tokenData.amount) >= tokenAmountIn;
   });
+};

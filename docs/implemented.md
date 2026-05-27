@@ -113,6 +113,11 @@ The local demo now proves the first on-chain AMM path on BCHN regtest:
 - AMM transition audits reject malformed trade categories, invalid sides,
   non-integer or zero input/output amounts, and trade outputs that would
   underflow the previous BCH or token reserve.
+- AMM pool summaries, quote helpers, and reserve-transition audits validate
+  pool token categories and BCH reserve strings before doing reserve math.
+- AMM funding and token-sell selectors reject non-positive trade amounts,
+  malformed token categories or amounts, and NFT-bearing token UTXOs before the
+  backend prepares a spend.
 - AMM proof-pack receipts reject forged audit pairs with malformed token
   categories, malformed transaction ids, malformed previous-pool transaction
   ids, or self-referential buy/sell transaction ids, even if the input audits
@@ -271,7 +276,7 @@ npm run node:health
 Current local result:
 
 - 14 test files.
-- 78 unit tests.
+- 81 unit tests.
 - TypeScript strict mode passes.
 - Build passes.
 - npm audit reports 0 vulnerabilities.

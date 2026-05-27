@@ -86,6 +86,11 @@ The current implementation uses BCHN RPC directly, without Fulcrum:
   the revealed redeem script is the expected backend operator script. The audit
   rejects malformed trade categories, sides, non-integer or zero trade amounts,
   and trade outputs that would underflow the previous BCH or token reserve.
+- Pool summary, quote, and audit helpers validate BCH reserve strings and token
+  category ids before converting values into integer reserve math.
+- AMM funding and token-sell selectors reject non-positive trade amounts,
+  malformed token categories or amounts, and NFT-bearing token UTXOs before the
+  backend prepares a spend.
 - AMM proof-pack receipt construction rejects malformed token categories and
   transaction ids, malformed previous-pool transaction ids, and
   self-referential buy/sell audit transaction ids even if a caller supplies
