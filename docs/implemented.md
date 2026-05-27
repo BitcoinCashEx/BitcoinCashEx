@@ -271,6 +271,7 @@ covenant that enforces the AMM reserve transition inside CashVM.
   type, and positive integer-string amounts before preparing transactions.
 - Backend-signed POST actions reject duplicate request framing headers before
   reading action bodies.
+- Fixed-action POST routes reject unexpected body fields before backend signing.
 - `/tx/<txid>` acts as a local transaction explorer for the mined transaction;
   launch event pages include decoded event data, and AMM swap pages include a
   compact AMM/CashVM proof summary, decoded trade marker, reserve audit data,
@@ -301,7 +302,7 @@ npm run node:health
 Current local result:
 
 - 18 test files.
-- 118 unit tests.
+- 119 unit tests.
 - TypeScript strict mode passes.
 - Build passes.
 - npm audit reports 0 vulnerabilities.

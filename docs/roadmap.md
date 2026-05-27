@@ -66,6 +66,8 @@
   demo POST actions.
 - [x] Reject duplicate request framing headers on backend-signed demo POST
   actions.
+- [x] Reject unexpected request body fields on fixed backend-signed POST
+  actions.
 - [x] Add fail-fast BCHN RPC environment validation for booleans, URLs,
   credentials, timeouts, and minimum-version policy.
 - [x] Validate BCHN JSON-RPC response shape before trusting returned results.

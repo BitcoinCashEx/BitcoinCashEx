@@ -101,6 +101,13 @@ export const parseDemoJsonBody = async (request: http.IncomingMessage): Promise<
   return parseDemoJsonBodyText(text);
 };
 
+export const parseDemoEmptyJsonBody = async (request: http.IncomingMessage): Promise<void> => {
+  const body = await parseDemoJsonBody(request);
+  if (Object.keys(body).length > 0) {
+    throw new DemoHttpRequestError("Request body must be empty for this action.", 400);
+  }
+};
+
 export const positiveBigintBody = (
   body: Record<string, unknown>,
   key: string,

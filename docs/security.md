@@ -22,6 +22,8 @@
   amounts, and a fixed maximum amount precision before submitting to BCHN.
 - Demo HTTP endpoints reject duplicate request framing headers before reading
   backend-signed action bodies.
+- Fixed-action POST routes reject unexpected request body fields before backend
+  signing.
 - On-chain demo event decoding rejects malformed field counts, invalid symbols,
   and non-positive trade amounts before launch replay.
 - OP_RETURN event parsing rejects malformed hex, unsupported push opcodes,

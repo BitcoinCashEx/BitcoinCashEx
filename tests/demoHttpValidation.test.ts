@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import {
   demoApiMaxBodyBytes,
   demoApiMaxIntegerDigits,
+  parseDemoEmptyJsonBody,
   parseDemoJsonBody,
   parseDemoJsonBodyText,
   positiveBigintBody
@@ -71,6 +72,15 @@ describe("demo HTTP validation", () => {
       )
     ).rejects.toMatchObject({
       message: "Content-Type must not be repeated.",
+      statusCode: 400
+    });
+  });
+
+  it("rejects non-empty bodies for fixed backend-signed actions", async () => {
+    await expect(parseDemoEmptyJsonBody(requestFromBody(""))).resolves.toBeUndefined();
+    await expect(parseDemoEmptyJsonBody(requestFromBody("{}"))).resolves.toBeUndefined();
+    await expect(parseDemoEmptyJsonBody(requestFromBody('{"amount":"1"}'))).rejects.toMatchObject({
+      message: "Request body must be empty for this action.",
       statusCode: 400
     });
   });

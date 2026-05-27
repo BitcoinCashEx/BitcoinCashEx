@@ -14,7 +14,7 @@ import {
   submitDemoEvent
 } from "./chain.js";
 import { buyLaunchTokens, graduateTokenLaunch, sellLaunchTokens } from "../defi/launchpad.js";
-import { DemoHttpRequestError, parseDemoJsonBody, positiveBigintBody } from "./httpValidation.js";
+import { DemoHttpRequestError, parseDemoEmptyJsonBody, parseDemoJsonBody, positiveBigintBody } from "./httpValidation.js";
 
 const port = Number.parseInt(process.env.BCHEX_DEMO_PORT ?? "3000", 10);
 
@@ -441,36 +441,42 @@ const server = http.createServer(async (request, response) => {
     }
 
     if (request.method === "POST" && url.pathname === "/api/fund") {
+      await parseDemoEmptyJsonBody(request);
       await ensureDemoFunding();
       json(response, 200, { ok: true });
       return;
     }
 
     if (request.method === "POST" && url.pathname === "/api/token") {
+      await parseDemoEmptyJsonBody(request);
       const result = await createDemoCashToken();
       json(response, 200, { txid: result.tokenGenesisTxid, ...result });
       return;
     }
 
     if (request.method === "POST" && url.pathname === "/api/cashvm") {
+      await parseDemoEmptyJsonBody(request);
       const result = await createDemoCashVmProof();
       json(response, 200, { txid: result.spendTxid, ...result });
       return;
     }
 
     if (request.method === "POST" && url.pathname === "/api/pool") {
+      await parseDemoEmptyJsonBody(request);
       const result = await createDemoAmmPool();
       json(response, 200, { txid: result.txid, pool: result });
       return;
     }
 
     if (request.method === "POST" && url.pathname === "/api/proof-pack") {
+      await parseDemoEmptyJsonBody(request);
       const result = await runDemoAmmProofPack();
       json(response, 200, { txid: result.tokenToBchTxid, ...result });
       return;
     }
 
     if (request.method === "POST" && url.pathname === "/api/launch-proof-pack") {
+      await parseDemoEmptyJsonBody(request);
       const result = await runDemoLaunchAmmProofPack();
       json(response, 200, { txid: result.ammProofPack.tokenToBchTxid, ...result });
       return;
@@ -491,6 +497,7 @@ const server = http.createServer(async (request, response) => {
     }
 
     if (request.method === "POST" && url.pathname === "/api/create") {
+      await parseDemoEmptyJsonBody(request);
       const snapshot = await getDemoSnapshot();
       if (snapshot.replay.launch !== undefined) throw new Error("Launch already exists on this local chain.");
       const txid = await submitDemoEvent({
@@ -530,6 +537,7 @@ const server = http.createServer(async (request, response) => {
     }
 
     if (request.method === "POST" && url.pathname === "/api/graduate") {
+      await parseDemoEmptyJsonBody(request);
       const snapshot = await getDemoSnapshot();
       if (snapshot.replay.launch === undefined) throw new Error("Create a launch first.");
       graduateTokenLaunch(snapshot.replay.launch);
