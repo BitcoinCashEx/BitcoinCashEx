@@ -63,6 +63,8 @@
   token data, non-positive amounts, and NFT-bearing token outputs.
 - [x] Add bounded JSON body and positive amount validation to backend-signed
   demo POST actions.
+- [x] Add fail-fast BCHN RPC environment validation for booleans, URLs,
+  credentials, and timeouts.
 - [x] Add forged audit-pair and malformed txid checks to AMM proof-pack
   receipts.
 - Add reproducible deployment documentation.

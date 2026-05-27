@@ -12,6 +12,9 @@
   - The node chain matches `BCH_NETWORK`.
   - `txindex` is synced.
   - May 2026 CashVM rules are active.
+- BCHN RPC configuration rejects ambiguous boolean switches, unsupported RPC
+  URL protocols, URL-embedded credentials, empty credentials, and invalid
+  timeout values before any RPC calls are made.
 
 ## DeFi Core
 
@@ -277,8 +280,8 @@ npm run node:health
 
 Current local result:
 
-- 15 test files.
-- 84 unit tests.
+- 16 test files.
+- 89 unit tests.
 - TypeScript strict mode passes.
 - Build passes.
 - npm audit reports 0 vulnerabilities.
