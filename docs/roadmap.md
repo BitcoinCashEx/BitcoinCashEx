@@ -67,7 +67,7 @@
 - [x] Reject duplicate request framing headers on backend-signed demo POST
   actions.
 - [x] Add fail-fast BCHN RPC environment validation for booleans, URLs,
-  credentials, and timeouts.
+  credentials, timeouts, and minimum-version policy.
 - [x] Validate BCHN JSON-RPC response shape before trusting returned results.
 - [x] Validate BCHN node-readiness result payloads before trusting node health
   fields.

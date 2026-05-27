@@ -21,6 +21,16 @@ const booleanFromEnv = (value: string | undefined, fallback: boolean): boolean =
   throw new Error(`Invalid boolean environment value: ${value}`);
 };
 
+const semanticVersionPattern = /^(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)$/;
+
+const semanticVersionFromEnv = (name: string, value: string | undefined, fallback: string): string => {
+  const text = value ?? fallback;
+  if (!semanticVersionPattern.test(text)) {
+    throw new Error(`${name} must be a semantic version like 29.0.0.`);
+  }
+  return text;
+};
+
 const networkFromEnv = (value: string | undefined): BchNetwork => {
   const network = value ?? "regtest";
   const allowed: readonly BchNetwork[] = ["main", "test", "test4", "scale", "chip", "regtest"];
@@ -74,7 +84,7 @@ const requiredStringFromEnv = (name: string, value: string | undefined, fallback
 
 export const loadConfig = (env: NodeJS.ProcessEnv = process.env): AppConfig => ({
   allowMainnetBroadcast: booleanFromEnv(env.BCH_ALLOW_MAINNET_BROADCAST, false),
-  minBchnVersion: env.BCH_MIN_BCHN_VERSION ?? "29.0.0",
+  minBchnVersion: semanticVersionFromEnv("BCH_MIN_BCHN_VERSION", env.BCH_MIN_BCHN_VERSION, "29.0.0"),
   network: networkFromEnv(env.BCH_NETWORK),
   regtestUpgrade12Active: booleanFromEnv(env.BCH_REGTEST_UPGRADE12_ACTIVE, true),
   rpc: {

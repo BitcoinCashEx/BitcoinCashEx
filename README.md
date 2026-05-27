@@ -76,7 +76,7 @@ type, and positive integer-string amounts before preparing transactions.
 They also reject duplicate request framing headers before reading action bodies.
 BCHN RPC configuration fails fast on ambiguous boolean switches, unsupported
 RPC URL protocols, URL-embedded credentials, empty credentials, and invalid
-timeouts.
+timeouts, and malformed minimum-version policy.
 BCHN JSON-RPC responses and node-readiness payloads are validated before
 returned results are trusted.
 Raw transaction helpers validate transaction hex, `testmempoolaccept` response

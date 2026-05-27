@@ -47,4 +47,11 @@ describe("configuration validation", () => {
     expect(() => loadConfig({ BCH_RPC_USER: "" })).toThrow("BCH_RPC_USER");
     expect(() => loadConfig({ BCH_RPC_PASSWORD: "" })).toThrow("BCH_RPC_PASSWORD");
   });
+
+  it("rejects malformed BCHN minimum version policy", () => {
+    expect(loadConfig({ BCH_MIN_BCHN_VERSION: "30.1.0" }).minBchnVersion).toBe("30.1.0");
+    expect(() => loadConfig({ BCH_MIN_BCHN_VERSION: "29" })).toThrow("semantic version");
+    expect(() => loadConfig({ BCH_MIN_BCHN_VERSION: "29.x.0" })).toThrow("semantic version");
+    expect(() => loadConfig({ BCH_MIN_BCHN_VERSION: "-1.0.0" })).toThrow("semantic version");
+  });
 });

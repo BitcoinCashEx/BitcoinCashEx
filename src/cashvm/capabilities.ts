@@ -23,8 +23,15 @@ export const isCashVmMay2026Active = (
   return medianTimePast >= cashVmMay2026Upgrade.mainnetActivationTime;
 };
 
+const semanticVersionPattern = /^(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)$/;
+
 export const compareSemver = (left: string, right: string): number => {
-  const parse = (value: string): readonly number[] => value.split(".").map((part) => Number.parseInt(part, 10));
+  const parse = (value: string): readonly number[] => {
+    if (!semanticVersionPattern.test(value)) {
+      throw new Error(`Invalid semantic version: ${value}`);
+    }
+    return value.split(".").map((part) => Number.parseInt(part, 10));
+  };
   const leftParts = parse(left);
   const rightParts = parse(right);
 
@@ -34,4 +41,3 @@ export const compareSemver = (left: string, right: string): number => {
   }
   return 0;
 };
-

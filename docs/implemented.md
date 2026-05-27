@@ -14,7 +14,7 @@
   - May 2026 CashVM rules are active.
 - BCHN RPC configuration rejects ambiguous boolean switches, unsupported RPC
   URL protocols, URL-embedded credentials, empty credentials, and invalid
-  timeout values before any RPC calls are made.
+  timeout values or minimum-version policy before any RPC calls are made.
 - BCHN RPC responses are parsed as validated JSON-RPC objects, and
   node-readiness result payloads are shape-checked before values are trusted.
   Malformed responses fail closed as RPC errors.
@@ -301,7 +301,7 @@ npm run node:health
 Current local result:
 
 - 18 test files.
-- 116 unit tests.
+- 118 unit tests.
 - TypeScript strict mode passes.
 - Build passes.
 - npm audit reports 0 vulnerabilities.

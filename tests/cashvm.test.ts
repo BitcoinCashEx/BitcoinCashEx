@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isCashVmMay2026Active } from "../src/cashvm/capabilities.js";
+import { compareSemver, isCashVmMay2026Active } from "../src/cashvm/capabilities.js";
 import { normalizeHexBytecode } from "../src/cashvm/bytecode.js";
 
 describe("CashVM helpers", () => {
@@ -18,5 +18,11 @@ describe("CashVM helpers", () => {
     expect(isCashVmMay2026Active("chip", 1_763_208_000, false)).toBe(true);
     expect(isCashVmMay2026Active("regtest", 0, true)).toBe(true);
   });
-});
 
+  it("compares BCHN semantic versions without accepting malformed policy strings", () => {
+    expect(compareSemver("29.1.0", "29.0.9")).toBeGreaterThan(0);
+    expect(compareSemver("29.0.0", "29.0.0")).toBe(0);
+    expect(compareSemver("28.2.0", "29.0.0")).toBeLessThan(0);
+    expect(() => compareSemver("29.x.0", "29.0.0")).toThrow("Invalid semantic version");
+  });
+});
