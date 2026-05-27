@@ -61,6 +61,8 @@
   and audit math.
 - [x] Add fail-closed AMM funding and token-sell UTXO selection for malformed
   token data, non-positive amounts, and NFT-bearing token outputs.
+- [x] Add bounded JSON body and positive amount validation to backend-signed
+  demo POST actions.
 - [x] Add forged audit-pair and malformed txid checks to AMM proof-pack
   receipts.
 - Add reproducible deployment documentation.

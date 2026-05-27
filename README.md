@@ -69,6 +69,8 @@ strings before integer reserve math.
 AMM funding and token-sell selectors fail closed on non-positive trade amounts,
 malformed token data, and NFT-bearing token UTXOs before the backend prepares a
 spend.
+Backend-signed POST actions validate bounded JSON object bodies, JSON content
+type, and positive integer-string amounts before preparing transactions.
 Proof-pack receipts also reject malformed categories, malformed transaction
 ids, and self-referential audit pairs.
 The launch-to-AMM receipt also exposes the

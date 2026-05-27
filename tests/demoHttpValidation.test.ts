@@ -1,0 +1,63 @@
+import { Readable } from "node:stream";
+import type http from "node:http";
+import { describe, expect, it } from "vitest";
+import {
+  demoApiMaxBodyBytes,
+  demoApiMaxIntegerDigits,
+  parseDemoJsonBody,
+  parseDemoJsonBodyText,
+  positiveBigintBody
+} from "../src/demo/httpValidation.js";
+
+const requestFromBody = (
+  body: string,
+  headers: http.IncomingHttpHeaders = { "content-type": "application/json" }
+): http.IncomingMessage => {
+  const request = Readable.from([Buffer.from(body)]) as http.IncomingMessage;
+  request.headers = {
+    "content-length": Buffer.byteLength(body).toString(),
+    ...headers
+  };
+  return request;
+};
+
+describe("demo HTTP validation", () => {
+  it("parses only JSON object request bodies", async () => {
+    await expect(parseDemoJsonBody(requestFromBody('{"amount":"1000"}'))).resolves.toEqual({ amount: "1000" });
+    expect(parseDemoJsonBodyText("")).toEqual({});
+
+    await expect(parseDemoJsonBody(requestFromBody("[1,2,3]"))).rejects.toMatchObject({
+      message: "Request body must be a JSON object.",
+      statusCode: 400
+    });
+    expect(() => parseDemoJsonBodyText("{")).toThrow("valid JSON");
+  });
+
+  it("rejects oversized or non-json request bodies before parsing", async () => {
+    await expect(
+      parseDemoJsonBody(
+        requestFromBody("{}", {
+          "content-length": (demoApiMaxBodyBytes + 1).toString(),
+          "content-type": "application/json"
+        })
+      )
+    ).rejects.toMatchObject({ statusCode: 413 });
+
+    await expect(parseDemoJsonBody(requestFromBody('{"amount":"1"}', { "content-type": "text/plain" }))).rejects.toMatchObject({
+      message: "Content-Type must be application/json.",
+      statusCode: 415
+    });
+  });
+
+  it("extracts positive bounded integer-string amounts for backend-signed actions", () => {
+    expect(positiveBigintBody({ bchAmountInSats: "100000" }, "bchAmountInSats")).toBe(100_000n);
+
+    expect(() => positiveBigintBody({ amount: "0" }, "amount")).toThrow("greater than zero");
+    expect(() => positiveBigintBody({ amount: "-1" }, "amount")).toThrow("integer string");
+    expect(() => positiveBigintBody({ amount: 1 }, "amount")).toThrow("integer string");
+    expect(() => positiveBigintBody({ amount: "1.5" }, "amount")).toThrow("integer string");
+    expect(() => positiveBigintBody({ amount: "1".repeat(demoApiMaxIntegerDigits + 1) }, "amount")).toThrow(
+      "digits or fewer"
+    );
+  });
+});

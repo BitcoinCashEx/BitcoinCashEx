@@ -110,6 +110,9 @@ Reasons to start here:
 - Add fail-closed AMM funding and token-sell UTXO selection for non-positive
   trade amounts, malformed token data, and NFT-bearing token outputs. Done in
   `src/demo/ammProof.ts` and `tests/demoAmmProof.test.ts`.
+- Add bounded JSON body and positive amount validation to backend-signed demo
+  POST actions. Done in `src/demo/httpValidation.ts`, `src/demo/server.ts`, and
+  `tests/demoHttpValidation.test.ts`.
 - Add forged audit-pair and malformed txid checks to AMM proof-pack receipts.
   Done in `src/demo/ammProof.ts` and `tests/demoAmmProof.test.ts`.
 - Add one-click AMM proof-pack runner and latest receipt selection. Done in

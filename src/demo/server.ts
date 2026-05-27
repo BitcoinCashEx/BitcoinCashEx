@@ -14,6 +14,7 @@ import {
   submitDemoEvent
 } from "./chain.js";
 import { buyLaunchTokens, graduateTokenLaunch, sellLaunchTokens } from "../defi/launchpad.js";
+import { DemoHttpRequestError, parseDemoJsonBody, positiveBigintBody } from "./httpValidation.js";
 
 const port = Number.parseInt(process.env.BCHEX_DEMO_PORT ?? "3000", 10);
 
@@ -31,32 +32,6 @@ const escapeHtml = (value: unknown): string =>
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#39;");
-
-const parseBody = async (request: http.IncomingMessage): Promise<Record<string, unknown>> =>
-  new Promise((resolve, reject) => {
-    const chunks: Buffer[] = [];
-    request.on("data", (chunk: Buffer) => chunks.push(chunk));
-    request.on("end", () => {
-      if (chunks.length === 0) {
-        resolve({});
-        return;
-      }
-      try {
-        resolve(JSON.parse(Buffer.concat(chunks).toString("utf8")) as Record<string, unknown>);
-      } catch (error) {
-        reject(error);
-      }
-    });
-    request.on("error", reject);
-  });
-
-const bigintBody = (body: Record<string, unknown>, key: string): bigint => {
-  const value = body[key];
-  if (typeof value !== "string" || !/^[0-9]+$/.test(value)) {
-    throw new Error(`${key} must be an integer string.`);
-  }
-  return BigInt(value);
-};
 
 const renderPage = (): string => `<!doctype html>
 <html lang="en">
@@ -502,15 +477,15 @@ const server = http.createServer(async (request, response) => {
     }
 
     if (request.method === "POST" && url.pathname === "/api/swap") {
-      const body = await parseBody(request);
-      const result = await swapDemoAmmPool(bigintBody(body, "bchAmountInSats"));
+      const body = await parseDemoJsonBody(request);
+      const result = await swapDemoAmmPool(positiveBigintBody(body, "bchAmountInSats"));
       json(response, 200, result);
       return;
     }
 
     if (request.method === "POST" && url.pathname === "/api/swap-token-to-bch") {
-      const body = await parseBody(request);
-      const result = await sellDemoAmmTokens(bigintBody(body, "tokenAmountIn"));
+      const body = await parseDemoJsonBody(request);
+      const result = await sellDemoAmmTokens(positiveBigintBody(body, "tokenAmountIn"));
       json(response, 200, result);
       return;
     }
@@ -533,21 +508,23 @@ const server = http.createServer(async (request, response) => {
     }
 
     if (request.method === "POST" && url.pathname === "/api/buy") {
-      const body = await parseBody(request);
+      const body = await parseDemoJsonBody(request);
+      const bchAmountInSats = positiveBigintBody(body, "bchAmountInSats");
       const snapshot = await getDemoSnapshot();
       if (snapshot.replay.launch === undefined) throw new Error("Create a launch first.");
-      buyLaunchTokens(snapshot.replay.launch, bigintBody(body, "bchAmountInSats"));
-      const txid = await submitDemoEvent({ bchAmountInSats: bigintBody(body, "bchAmountInSats"), kind: "BUY" });
+      buyLaunchTokens(snapshot.replay.launch, bchAmountInSats);
+      const txid = await submitDemoEvent({ bchAmountInSats, kind: "BUY" });
       json(response, 200, { txid });
       return;
     }
 
     if (request.method === "POST" && url.pathname === "/api/sell") {
-      const body = await parseBody(request);
+      const body = await parseDemoJsonBody(request);
+      const tokenAmountIn = positiveBigintBody(body, "tokenAmountIn");
       const snapshot = await getDemoSnapshot();
       if (snapshot.replay.launch === undefined) throw new Error("Create a launch first.");
-      sellLaunchTokens(snapshot.replay.launch, bigintBody(body, "tokenAmountIn"));
-      const txid = await submitDemoEvent({ kind: "SELL", tokenAmountIn: bigintBody(body, "tokenAmountIn") });
+      sellLaunchTokens(snapshot.replay.launch, tokenAmountIn);
+      const txid = await submitDemoEvent({ kind: "SELL", tokenAmountIn });
       json(response, 200, { txid });
       return;
     }
@@ -571,7 +548,8 @@ const server = http.createServer(async (request, response) => {
 
     json(response, 404, { error: "Not found" });
   } catch (error) {
-    json(response, 500, { error: error instanceof Error ? error.message : String(error) });
+    const status = error instanceof DemoHttpRequestError ? error.statusCode : 500;
+    json(response, status, { error: error instanceof Error ? error.message : String(error) });
   }
 });
 

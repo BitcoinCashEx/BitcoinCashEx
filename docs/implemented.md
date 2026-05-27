@@ -246,6 +246,8 @@ covenant that enforces the AMM reserve transition inside CashVM.
 - The UI has a `Run Launch To AMM Proof` button and receipt with launch token
   binding, graduation amounts, migrated pool amounts, pool funding status, pool,
   migration token conservation, and AMM explorer links.
+- Backend-signed POST actions validate bounded JSON object bodies, JSON content
+  type, and positive integer-string amounts before preparing transactions.
 - `/tx/<txid>` acts as a local transaction explorer for the mined transaction;
   launch event pages include decoded event data, and AMM swap pages include a
   compact AMM/CashVM proof summary, decoded trade marker, reserve audit data,
@@ -275,8 +277,8 @@ npm run node:health
 
 Current local result:
 
-- 14 test files.
-- 81 unit tests.
+- 15 test files.
+- 84 unit tests.
 - TypeScript strict mode passes.
 - Build passes.
 - npm audit reports 0 vulnerabilities.
