@@ -445,6 +445,67 @@ describe("demo AMM pool proof helpers", () => {
     });
   });
 
+  it("fails proof-pack receipts for forged audit pairs with malformed categories", () => {
+    expect(
+      buildDemoAmmProofPackReceipt([
+        {
+          category: "not-a-category",
+          height: 20,
+          previousPoolTxid: "00".repeat(32),
+          problems: [],
+          side: "BCH_TO_TOKEN",
+          status: "verified",
+          txid: "11".repeat(32)
+        },
+        {
+          category: "not-a-category",
+          height: 21,
+          previousPoolTxid: "11".repeat(32),
+          problems: [],
+          side: "TOKEN_TO_BCH",
+          status: "verified",
+          txid: "22".repeat(32)
+        }
+      ])
+    ).toMatchObject({
+      auditTxids: ["11".repeat(32), "22".repeat(32)],
+      problems: ["AMM proof pack category is not a 32-byte transaction id."],
+      status: "failed"
+    });
+  });
+
+  it("fails proof-pack receipts for self-referential audit transaction pairs", () => {
+    const category = "aa".repeat(32);
+    const txid = "11".repeat(32);
+
+    expect(
+      buildDemoAmmProofPackReceipt([
+        {
+          category,
+          height: 20,
+          previousPoolTxid: "00".repeat(32),
+          problems: [],
+          side: "BCH_TO_TOKEN",
+          status: "verified",
+          txid
+        },
+        {
+          category,
+          height: 21,
+          previousPoolTxid: txid,
+          problems: [],
+          side: "TOKEN_TO_BCH",
+          status: "verified",
+          txid
+        }
+      ])
+    ).toMatchObject({
+      auditTxids: [txid, txid],
+      problems: ["AMM proof pack buy and sell audits must reference distinct transactions."],
+      status: "failed"
+    });
+  });
+
   it("reports a missing proof-pack receipt without a complete swap pair", () => {
     expect(buildDemoAmmProofPackReceipt([])).toEqual({
       auditTxids: [],

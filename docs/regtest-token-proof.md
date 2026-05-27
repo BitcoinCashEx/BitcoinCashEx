@@ -86,6 +86,9 @@ The current implementation uses BCHN RPC directly, without Fulcrum:
   the revealed redeem script is the expected backend operator script. The audit
   rejects malformed trade categories, sides, non-integer or zero trade amounts,
   and trade outputs that would underflow the previous BCH or token reserve.
+- AMM proof-pack receipt construction rejects malformed token categories and
+  self-referential buy/sell audit transaction ids even if a caller supplies
+  forged verified audit rows.
 - `/api/proof-pack` is the one-click path: the backend mines a fresh
   BCH-to-token swap and a fresh token-to-BCH swap, then returns the latest
   verified proof receipt and local explorer links.

@@ -57,6 +57,7 @@
   audits.
 - [x] Add malformed trade marker and reserve-underflow checks to AMM transition
   audits.
+- [x] Add forged audit-pair checks to AMM proof-pack receipts.
 - Add reproducible deployment documentation.
 - Add external review checkpoints before any mainnet release.
 

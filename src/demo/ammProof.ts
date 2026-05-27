@@ -446,18 +446,24 @@ export const buildDemoAmmProofPackReceipt = (
           audit.side === "BCH_TO_TOKEN" &&
           audit.category === sellAudit.category &&
           sellAudit.previousPoolTxid === audit.txid
-      );
+    );
     if (buyAudit === undefined) continue;
 
     const problems = [...buyAudit.problems, ...sellAudit.problems];
+    if (!tokenCategoryPattern.test(buyAudit.category) || !tokenCategoryPattern.test(sellAudit.category)) {
+      problems.push("AMM proof pack category is not a 32-byte transaction id.");
+    }
+    if (buyAudit.txid === sellAudit.txid) {
+      problems.push("AMM proof pack buy and sell audits must reference distinct transactions.");
+    }
     return {
       auditTxids: [buyAudit.txid, sellAudit.txid],
       bchToTokenTxid: buyAudit.txid,
-      category: sellAudit.category,
+      category: sellAudit.category.toLowerCase(),
       endHeight: sellAudit.height,
       problems,
       startHeight: buyAudit.height,
-      status: buyAudit.status === "verified" && sellAudit.status === "verified" ? "verified" : "failed",
+      status: buyAudit.status === "verified" && sellAudit.status === "verified" && problems.length === 0 ? "verified" : "failed",
       tokenToBchTxid: sellAudit.txid
     };
   }
