@@ -506,6 +506,40 @@ describe("demo AMM pool proof helpers", () => {
     });
   });
 
+  it("fails proof-pack receipts for forged audit pairs with malformed transaction ids", () => {
+    const category = "aa".repeat(32);
+
+    expect(
+      buildDemoAmmProofPackReceipt([
+        {
+          category,
+          height: 20,
+          previousPoolTxid: "not-a-pool-txid",
+          problems: [],
+          side: "BCH_TO_TOKEN",
+          status: "verified",
+          txid: "not-a-buy-txid"
+        },
+        {
+          category,
+          height: 21,
+          previousPoolTxid: "not-a-buy-txid",
+          problems: [],
+          side: "TOKEN_TO_BCH",
+          status: "verified",
+          txid: "not-a-sell-txid"
+        }
+      ])
+    ).toMatchObject({
+      auditTxids: ["not-a-buy-txid", "not-a-sell-txid"],
+      problems: [
+        "AMM proof pack audit transaction ids must be 32-byte transaction ids.",
+        "AMM proof pack previous pool transaction ids must be 32-byte transaction ids."
+      ],
+      status: "failed"
+    });
+  });
+
   it("reports a missing proof-pack receipt without a complete swap pair", () => {
     expect(buildDemoAmmProofPackReceipt([])).toEqual({
       auditTxids: [],

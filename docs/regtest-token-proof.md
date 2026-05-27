@@ -87,6 +87,7 @@ The current implementation uses BCHN RPC directly, without Fulcrum:
   rejects malformed trade categories, sides, non-integer or zero trade amounts,
   and trade outputs that would underflow the previous BCH or token reserve.
 - AMM proof-pack receipt construction rejects malformed token categories and
+  transaction ids, malformed previous-pool transaction ids, and
   self-referential buy/sell audit transaction ids even if a caller supplies
   forged verified audit rows.
 - `/api/proof-pack` is the one-click path: the backend mines a fresh

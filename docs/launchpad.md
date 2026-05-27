@@ -104,8 +104,8 @@ Reasons to start here:
   `src/demo/chain.ts`, and `src/demo/server.ts`.
 - Add malformed AMM trade marker and reserve-underflow checks to transition
   audits. Done in `src/demo/ammProof.ts` and `tests/demoAmmProof.test.ts`.
-- Add forged audit-pair checks to AMM proof-pack receipts. Done in
-  `src/demo/ammProof.ts` and `tests/demoAmmProof.test.ts`.
+- Add forged audit-pair and malformed txid checks to AMM proof-pack receipts.
+  Done in `src/demo/ammProof.ts` and `tests/demoAmmProof.test.ts`.
 - Add one-click AMM proof-pack runner and latest receipt selection. Done in
   `src/demo/chain.ts`, `src/demo/server.ts`, and `tests/demoAmmProof.test.ts`.
 - Add transaction-builder data models for create, buy, sell, and graduate.

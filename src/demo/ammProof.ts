@@ -453,6 +453,12 @@ export const buildDemoAmmProofPackReceipt = (
     if (!tokenCategoryPattern.test(buyAudit.category) || !tokenCategoryPattern.test(sellAudit.category)) {
       problems.push("AMM proof pack category is not a 32-byte transaction id.");
     }
+    if (!tokenCategoryPattern.test(buyAudit.txid) || !tokenCategoryPattern.test(sellAudit.txid)) {
+      problems.push("AMM proof pack audit transaction ids must be 32-byte transaction ids.");
+    }
+    if (!tokenCategoryPattern.test(buyAudit.previousPoolTxid) || !tokenCategoryPattern.test(sellAudit.previousPoolTxid)) {
+      problems.push("AMM proof pack previous pool transaction ids must be 32-byte transaction ids.");
+    }
     if (buyAudit.txid === sellAudit.txid) {
       problems.push("AMM proof pack buy and sell audits must reference distinct transactions.");
     }

@@ -114,8 +114,9 @@ The local demo now proves the first on-chain AMM path on BCHN regtest:
   non-integer or zero input/output amounts, and trade outputs that would
   underflow the previous BCH or token reserve.
 - AMM proof-pack receipts reject forged audit pairs with malformed token
-  categories or self-referential buy/sell transaction ids, even if the input
-  audits claim `verified`.
+  categories, malformed transaction ids, malformed previous-pool transaction
+  ids, or self-referential buy/sell transaction ids, even if the input audits
+  claim `verified`.
 - Each AMM transition audit also extracts the final redeem-script push from the
   pool input script, hashes it as P2SH, and verifies it matches the previous
   CashVM pool locking script. It also verifies the revealed redeem script is the
@@ -270,7 +271,7 @@ npm run node:health
 Current local result:
 
 - 14 test files.
-- 77 unit tests.
+- 78 unit tests.
 - TypeScript strict mode passes.
 - Build passes.
 - npm audit reports 0 vulnerabilities.
