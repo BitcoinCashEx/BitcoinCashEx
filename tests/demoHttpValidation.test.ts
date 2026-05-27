@@ -11,13 +11,13 @@ import {
 
 const requestFromBody = (
   body: string,
-  headers: http.IncomingHttpHeaders = { "content-type": "application/json" }
+  headers: Record<string, string | string[] | undefined> = { "content-type": "application/json" }
 ): http.IncomingMessage => {
   const request = Readable.from([Buffer.from(body)]) as http.IncomingMessage;
   request.headers = {
     "content-length": Buffer.byteLength(body).toString(),
     ...headers
-  };
+  } as http.IncomingHttpHeaders;
   return request;
 };
 
@@ -46,6 +46,32 @@ describe("demo HTTP validation", () => {
     await expect(parseDemoJsonBody(requestFromBody('{"amount":"1"}', { "content-type": "text/plain" }))).rejects.toMatchObject({
       message: "Content-Type must be application/json.",
       statusCode: 415
+    });
+  });
+
+  it("rejects duplicate framing headers for backend-signed actions", async () => {
+    await expect(
+      parseDemoJsonBody(
+        requestFromBody("{}", {
+          "content-length": ["2", "999"],
+          "content-type": "application/json"
+        })
+      )
+    ).rejects.toMatchObject({
+      message: "Content-Length must not be repeated.",
+      statusCode: 400
+    });
+
+    await expect(
+      parseDemoJsonBody(
+        requestFromBody("{}", {
+          "content-length": "2",
+          "content-type": ["application/json", "text/plain"]
+        })
+      )
+    ).rejects.toMatchObject({
+      message: "Content-Type must not be repeated.",
+      statusCode: 400
     });
   });
 

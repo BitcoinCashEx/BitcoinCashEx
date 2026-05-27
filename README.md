@@ -71,6 +71,7 @@ malformed token data, and NFT-bearing token UTXOs before the backend prepares a
 spend.
 Backend-signed POST actions validate bounded JSON object bodies, JSON content
 type, and positive integer-string amounts before preparing transactions.
+They also reject duplicate request framing headers before reading action bodies.
 BCHN RPC configuration fails fast on ambiguous boolean switches, unsupported
 RPC URL protocols, URL-embedded credentials, empty credentials, and invalid
 timeouts.

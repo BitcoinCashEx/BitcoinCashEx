@@ -63,6 +63,8 @@
   token data, non-positive amounts, and NFT-bearing token outputs.
 - [x] Add bounded JSON body and positive amount validation to backend-signed
   demo POST actions.
+- [x] Reject duplicate request framing headers on backend-signed demo POST
+  actions.
 - [x] Add fail-fast BCHN RPC environment validation for booleans, URLs,
   credentials, and timeouts.
 - [x] Validate BCHN JSON-RPC response shape before trusting returned results.

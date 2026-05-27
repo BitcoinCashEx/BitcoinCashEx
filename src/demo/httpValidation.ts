@@ -15,14 +15,21 @@ export class DemoHttpRequestError extends Error {
   }
 }
 
+const singleHeaderValue = (name: string, value: string | string[] | undefined): string | undefined => {
+  if (Array.isArray(value)) {
+    throw new DemoHttpRequestError(`${name} must not be repeated.`, 400);
+  }
+  return value;
+};
+
 const contentTypeIsJson = (contentType: string | string[] | undefined): boolean => {
-  const value = Array.isArray(contentType) ? contentType[0] : contentType;
+  const value = singleHeaderValue("Content-Type", contentType);
   if (value === undefined) return false;
   return value.split(";", 1)[0]?.trim().toLowerCase() === "application/json";
 };
 
 const parseContentLength = (value: string | string[] | undefined): number | undefined => {
-  const text = Array.isArray(value) ? value[0] : value;
+  const text = singleHeaderValue("Content-Length", value);
   if (text === undefined) return undefined;
   if (!/^[0-9]+$/.test(text)) {
     throw new DemoHttpRequestError("Content-Length must be a non-negative integer.", 400);
