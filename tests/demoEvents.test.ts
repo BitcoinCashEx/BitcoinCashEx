@@ -64,6 +64,43 @@ describe("demo on-chain event replay", () => {
     });
   });
 
+  it("rejects malformed event field counts and non-positive trade amounts", () => {
+    expect(() => decodeDemoEventText("BCHEX1|CREATE|PUMP|0|900000|100000|1000000|100|300000|extra")).toThrow(
+      "exactly 9 fields"
+    );
+    expect(() => decodeDemoEventText("BCHEX1|CREATE||0|900000|100000|1000000|100|300000")).toThrow(
+      "symbol"
+    );
+    expect(() => decodeDemoEventText("BCHEX1|CREATE|pump|0|900000|100000|1000000|100|300000")).toThrow(
+      "uppercase"
+    );
+    expect(() =>
+      encodeDemoEventText({
+        decimals: 0,
+        feeBps: 100,
+        graduationThresholdBchSats: 300_000n,
+        kind: "CREATE",
+        maxSupply: 900_000n,
+        symbol: "bad-symbol",
+        virtualBchReserveSats: 100_000n,
+        virtualTokenReserve: 1_000_000n
+      })
+    ).toThrow("uppercase");
+    expect(() => decodeDemoEventText("BCHEX1|BUY|0")).toThrow("positive");
+    expect(() => decodeDemoEventText("BCHEX1|SELL|0")).toThrow("positive");
+    expect(() => decodeDemoEventText("BCHEX1|GRADUATE|extra")).toThrow("exactly 2 fields");
+    expect(() => decodeDemoEventText(`BCHEX1|TOKEN|${"aa".repeat(32)}|${"bb".repeat(32)}|extra`)).toThrow(
+      "exactly 4 fields"
+    );
+  });
+
+  it("ignores malformed OP_RETURN events instead of replaying them", () => {
+    const payload = Buffer.from("BCHEX1|BUY|0", "utf8");
+    const script = Buffer.concat([Buffer.from([0x6a, payload.length]), payload]).toString("hex");
+
+    expect(parseOpReturnEvent(script)).toBeUndefined();
+  });
+
   it("replays a full local launch lifecycle from transaction events", () => {
     const events: DemoChainEvent[] = [
       {

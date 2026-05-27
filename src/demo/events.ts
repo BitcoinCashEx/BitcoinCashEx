@@ -54,6 +54,13 @@ const assertEventPart = (name: string, value: string): void => {
   }
 };
 
+const assertEventSymbol = (symbol: string): void => {
+  assertEventPart("symbol", symbol);
+  if (!/^[A-Z0-9]{2,16}$/.test(symbol)) {
+    throw new Error("symbol must use 2 to 16 uppercase letters or numbers.");
+  }
+};
+
 const parseBigint = (name: string, value: string | undefined): bigint => {
   if (value === undefined || !/^[0-9]+$/.test(value)) {
     throw new Error(`${name} must be a non-negative integer string.`);
@@ -61,11 +68,23 @@ const parseBigint = (name: string, value: string | undefined): bigint => {
   return BigInt(value);
 };
 
-const parseNumber = (name: string, value: string | undefined): number => {
+const parsePositiveBigint = (name: string, value: string | undefined): bigint => {
+  const parsed = parseBigint(name, value);
+  if (parsed <= 0n) {
+    throw new Error(`${name} must be positive.`);
+  }
+  return parsed;
+};
+
+const parseNumber = (name: string, value: string | undefined, max: number): number => {
   if (value === undefined || !/^[0-9]+$/.test(value)) {
     throw new Error(`${name} must be a non-negative integer string.`);
   }
-  return Number.parseInt(value, 10);
+  const parsed = Number.parseInt(value, 10);
+  if (!Number.isSafeInteger(parsed) || parsed > max) {
+    throw new Error(`${name} must be an integer from 0 to ${max}.`);
+  }
+  return parsed;
 };
 
 const txidPattern = /^[0-9a-f]{64}$/i;
@@ -77,9 +96,15 @@ const parseTxid = (name: string, value: string | undefined): string => {
   return value.toLowerCase();
 };
 
+const requirePartCount = (kind: string, parts: readonly string[], expected: number): void => {
+  if (parts.length !== expected) {
+    throw new Error(`${kind} event must contain exactly ${expected} fields.`);
+  }
+};
+
 export const encodeDemoEventText = (event: DemoEventInput): string => {
   if (event.kind === "CREATE") {
-    assertEventPart("symbol", event.symbol);
+    assertEventSymbol(event.symbol);
     return [
       eventPrefix,
       event.kind,
@@ -114,33 +139,38 @@ export const decodeDemoEventText = (text: string): DemoEventInput | undefined =>
 
   const kind = parts[1];
   if (kind === "CREATE") {
+    requirePartCount(kind, parts, 9);
+    assertEventSymbol(parts[2] ?? "");
     return {
-      decimals: parseNumber("decimals", parts[3]),
-      feeBps: parseNumber("feeBps", parts[7]),
-      graduationThresholdBchSats: parseBigint("graduationThresholdBchSats", parts[8]),
+      decimals: parseNumber("decimals", parts[3], 18),
+      feeBps: parseNumber("feeBps", parts[7], 9_999),
+      graduationThresholdBchSats: parsePositiveBigint("graduationThresholdBchSats", parts[8]),
       kind,
-      maxSupply: parseBigint("maxSupply", parts[4]),
+      maxSupply: parsePositiveBigint("maxSupply", parts[4]),
       symbol: parts[2] ?? "",
-      virtualBchReserveSats: parseBigint("virtualBchReserveSats", parts[5]),
-      virtualTokenReserve: parseBigint("virtualTokenReserve", parts[6])
+      virtualBchReserveSats: parsePositiveBigint("virtualBchReserveSats", parts[5]),
+      virtualTokenReserve: parsePositiveBigint("virtualTokenReserve", parts[6])
     };
   }
 
   if (kind === "BUY") {
+    requirePartCount(kind, parts, 3);
     return {
-      bchAmountInSats: parseBigint("bchAmountInSats", parts[2]),
+      bchAmountInSats: parsePositiveBigint("bchAmountInSats", parts[2]),
       kind
     };
   }
 
   if (kind === "SELL") {
+    requirePartCount(kind, parts, 3);
     return {
       kind,
-      tokenAmountIn: parseBigint("tokenAmountIn", parts[2])
+      tokenAmountIn: parsePositiveBigint("tokenAmountIn", parts[2])
     };
   }
 
   if (kind === "TOKEN") {
+    requirePartCount(kind, parts, 4);
     return {
       category: parseTxid("category", parts[2]),
       kind,
@@ -149,6 +179,7 @@ export const decodeDemoEventText = (text: string): DemoEventInput | undefined =>
   }
 
   if (kind === "GRADUATE") {
+    requirePartCount(kind, parts, 2);
     return { kind };
   }
 

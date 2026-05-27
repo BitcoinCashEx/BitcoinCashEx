@@ -15,6 +15,8 @@
 - Demo HTTP endpoints that prepare backend-signed transactions enforce bounded
   JSON object bodies, `application/json` content type, positive integer-string
   amounts, and a fixed maximum amount precision before submitting to BCHN.
+- On-chain demo event decoding rejects malformed field counts, invalid symbols,
+  and non-positive trade amounts before launch replay.
 - Runtime dependencies start with `@bitauth/libauth`, which has no runtime
   dependencies.
 - `.env` is ignored and `.env.example` contains only development credentials.
