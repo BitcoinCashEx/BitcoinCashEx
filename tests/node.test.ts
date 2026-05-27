@@ -94,4 +94,43 @@ describe("BCHN RPC safety", () => {
       ready: true
     });
   });
+
+  it("rejects malformed getnetworkinfo readiness responses", async () => {
+    const rpc: Pick<BchnRpcClient, "call"> = {
+      call: async <T>(method: BchnRpcMethod): Promise<T> => {
+        if (method === "getnetworkinfo") return { version: 290000 } as T;
+        if (method === "getblockchaininfo") return { blocks: 1, chain: "regtest", headers: 1, mediantime: 0 } as T;
+        if (method === "getindexinfo") return { txindex: { synced: true } } as T;
+        throw new Error(`unexpected method ${method}`);
+      }
+    };
+
+    await expect(getNodeReadiness(regtestConfig(), rpc)).rejects.toThrow("getnetworkinfo");
+  });
+
+  it("rejects malformed getblockchaininfo readiness responses", async () => {
+    const rpc: Pick<BchnRpcClient, "call"> = {
+      call: async <T>(method: BchnRpcMethod): Promise<T> => {
+        if (method === "getnetworkinfo") return { subversion: "/Bitcoin Cash Node:29.0.0/", version: 290000 } as T;
+        if (method === "getblockchaininfo") return { blocks: -1, chain: "regtest", headers: 1, mediantime: 0 } as T;
+        if (method === "getindexinfo") return { txindex: { synced: true } } as T;
+        throw new Error(`unexpected method ${method}`);
+      }
+    };
+
+    await expect(getNodeReadiness(regtestConfig(), rpc)).rejects.toThrow("getblockchaininfo");
+  });
+
+  it("rejects malformed getindexinfo readiness responses", async () => {
+    const rpc: Pick<BchnRpcClient, "call"> = {
+      call: async <T>(method: BchnRpcMethod): Promise<T> => {
+        if (method === "getnetworkinfo") return { subversion: "/Bitcoin Cash Node:29.0.0/", version: 290000 } as T;
+        if (method === "getblockchaininfo") return { blocks: 1, chain: "regtest", headers: 1, mediantime: 0 } as T;
+        if (method === "getindexinfo") return { txindex: { synced: "yes" } } as T;
+        throw new Error(`unexpected method ${method}`);
+      }
+    };
+
+    await expect(getNodeReadiness(regtestConfig(), rpc)).rejects.toThrow("getindexinfo");
+  });
 });

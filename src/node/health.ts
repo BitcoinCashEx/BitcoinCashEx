@@ -29,6 +29,51 @@ const parseBchnSubversion = (subversion: string): string | undefined => {
   return match?.[1];
 };
 
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null && !Array.isArray(value);
+
+const isNonNegativeSafeInteger = (value: unknown): value is number =>
+  typeof value === "number" && Number.isSafeInteger(value) && value >= 0;
+
+const normalizeNetworkInfo = (value: unknown): BchnNetworkInfo => {
+  if (!isRecord(value) || typeof value.subversion !== "string" || !isNonNegativeSafeInteger(value.version)) {
+    throw new Error("BCHN getnetworkinfo returned a malformed response.");
+  }
+  return { subversion: value.subversion, version: value.version };
+};
+
+const normalizeBlockchainInfo = (value: unknown): BchnBlockchainInfo => {
+  if (
+    !isRecord(value) ||
+    typeof value.chain !== "string" ||
+    !isNonNegativeSafeInteger(value.headers) ||
+    !isNonNegativeSafeInteger(value.blocks) ||
+    !isNonNegativeSafeInteger(value.mediantime)
+  ) {
+    throw new Error("BCHN getblockchaininfo returned a malformed response.");
+  }
+  return {
+    blocks: value.blocks,
+    chain: value.chain,
+    headers: value.headers,
+    mediantime: value.mediantime
+  };
+};
+
+const normalizeIndexInfo = (value: unknown): Record<string, { readonly synced: boolean }> => {
+  if (!isRecord(value)) {
+    throw new Error("BCHN getindexinfo returned a malformed response.");
+  }
+
+  const entries = Object.entries(value).map(([name, index]) => {
+    if (!isRecord(index) || typeof index.synced !== "boolean") {
+      throw new Error("BCHN getindexinfo returned a malformed response.");
+    }
+    return [name, { synced: index.synced }] as const;
+  });
+  return Object.fromEntries(entries);
+};
+
 const normalizeChain = (chain: string): BchNetwork => {
   if (chain === "chip") return "chip";
   if (chain === "regtest") return "regtest";
@@ -44,9 +89,9 @@ export const getNodeReadiness = async (
   rpc: Pick<BchnRpcClient, "call">
 ): Promise<NodeReadinessReport> => {
   const [networkInfo, blockchainInfo, indexInfo] = await Promise.all([
-    rpc.call<BchnNetworkInfo>("getnetworkinfo"),
-    rpc.call<BchnBlockchainInfo>("getblockchaininfo"),
-    rpc.call<Record<string, { readonly synced: boolean }>>("getindexinfo")
+    rpc.call<unknown>("getnetworkinfo").then(normalizeNetworkInfo),
+    rpc.call<unknown>("getblockchaininfo").then(normalizeBlockchainInfo),
+    rpc.call<unknown>("getindexinfo").then(normalizeIndexInfo)
   ]);
 
   const nodeVersion = parseBchnSubversion(networkInfo.subversion);
@@ -90,4 +135,3 @@ export const getNodeReadiness = async (
     subversion: networkInfo.subversion
   };
 };
-

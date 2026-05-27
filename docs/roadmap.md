@@ -68,6 +68,8 @@
 - [x] Add fail-fast BCHN RPC environment validation for booleans, URLs,
   credentials, and timeouts.
 - [x] Validate BCHN JSON-RPC response shape before trusting returned results.
+- [x] Validate BCHN node-readiness result payloads before trusting node health
+  fields.
 - [x] Validate raw transaction hex, `testmempoolaccept` response shape,
   fee/vsize fields, and broadcast txid consistency before accepting raw
   transaction safety helper results.

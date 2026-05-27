@@ -8,7 +8,8 @@
 - BCHN RPC configuration fails fast on invalid booleans, unsupported URL
   protocols, credential-bearing URLs, empty credentials, and invalid timeouts.
 - BCHN RPC responses are validated as JSON-RPC objects before their `result` is
-  trusted; malformed node responses fail closed as RPC errors.
+  trusted; node-readiness result payloads are also shape-checked before health
+  fields are used.
 - Mainnet raw transaction broadcast is blocked in code unless explicitly enabled.
 - Raw transaction broadcast helpers reject malformed raw transaction hex,
   malformed `testmempoolaccept` responses, malformed fee/vsize fields,
