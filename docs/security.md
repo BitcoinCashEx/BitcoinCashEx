@@ -17,6 +17,8 @@
   malformed broadcast txids, and mismatched accepted-versus-broadcast txids.
 - BCHN BCH amount values are checked for finite whole-satoshi monetary range
   before conversion into integer sats.
+- CashToken proof summaries validate NFT capabilities and commitment bytecode
+  before chain-derived token data is trusted.
 - Demo HTTP endpoints that prepare backend-signed transactions enforce bounded
   JSON object bodies, `application/json` content type, positive integer-string
   amounts, and a fixed maximum amount precision before submitting to BCHN.

@@ -25,4 +25,28 @@ describe("demo CashToken proof summaries", () => {
       "integer string"
     );
   });
+
+  it("rejects malformed token NFT capabilities before summarizing proofs", () => {
+    expect(() =>
+      summarizeDemoTokenData({
+        category: "AA".repeat(32),
+        nft: { capability: "forged", commitment: "00" }
+      })
+    ).toThrow("NFT capability");
+  });
+
+  it("rejects malformed token NFT commitments before summarizing proofs", () => {
+    expect(() =>
+      summarizeDemoTokenData({
+        category: "AA".repeat(32),
+        nft: { capability: "minting", commitment: "0" }
+      })
+    ).toThrow("NFT commitment");
+    expect(() =>
+      summarizeDemoTokenData({
+        category: "AA".repeat(32),
+        nft: { capability: "minting", commitment: "zz" }
+      })
+    ).toThrow("NFT commitment");
+  });
 });

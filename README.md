@@ -71,6 +71,8 @@ before conversion into integer sats.
 AMM funding and token-sell selectors fail closed on non-positive trade amounts,
 malformed token data, and NFT-bearing token UTXOs before the backend prepares a
 spend.
+CashToken proof summaries validate NFT capabilities and commitment bytecode
+before chain-derived token data is trusted.
 Backend-signed POST actions validate bounded JSON object bodies, JSON content
 type, and positive integer-string amounts before preparing transactions.
 They also reject duplicate request framing headers before reading action bodies.

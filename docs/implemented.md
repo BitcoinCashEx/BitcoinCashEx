@@ -242,6 +242,8 @@ covenant that enforces the AMM reserve transition inside CashVM.
   proofs.
 - On-chain launch event decoding rejects malformed field counts, invalid CREATE
   symbols, and non-positive BUY/SELL amounts before replaying state.
+- CashToken proof summaries validate NFT capabilities and commitment bytecode
+  before chain-derived token data is trusted.
 - OP_RETURN event parsing rejects malformed hex, unsupported push opcodes,
   truncated pushdata, and trailing script bytes before decoding launch events.
 - CashVM proof marker and P2SH scriptSig parsing reject malformed hex and
@@ -305,7 +307,7 @@ npm run node:health
 Current local result:
 
 - 19 test files.
-- 123 unit tests.
+- 125 unit tests.
 - TypeScript strict mode passes.
 - Build passes.
 - npm audit reports 0 vulnerabilities.
