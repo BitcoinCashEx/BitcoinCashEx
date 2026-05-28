@@ -16,6 +16,7 @@ export interface DemoCashVmProofTx {
       readonly hex: string;
     };
     readonly txid?: string;
+    readonly vout?: number;
   }[];
   readonly vout: readonly {
     readonly scriptPubKey: {
@@ -34,7 +35,9 @@ export const extractDemoCashVmProofsFromTx = (
     const proof = parseCashVmProofScript(output.scriptPubKey.hex);
     if (proof === undefined) continue;
 
-    const spendInput = tx.vin.find((input) => input.txid === proof.contractTxid);
+    const spendInput = tx.vin.find(
+      (input) => input.txid?.toLowerCase() === proof.contractTxid && input.vout === 0
+    );
     const scriptSigHex = spendInput?.scriptSig?.hex;
     if (scriptSigHex === undefined) continue;
 

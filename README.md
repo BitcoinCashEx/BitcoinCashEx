@@ -75,6 +75,8 @@ Backend-signed POST actions validate bounded JSON object bodies, JSON content
 type, and positive integer-string amounts before preparing transactions.
 They also reject duplicate request framing headers before reading action bodies.
 Fixed-action POST routes reject unexpected body fields before backend signing.
+The demo server port is validated as an explicit local TCP port before
+listening.
 BCHN RPC configuration fails fast on ambiguous boolean switches, unsupported
 RPC URL protocols, URL-embedded credentials, empty credentials, and invalid
 timeouts, and malformed minimum-version policy.
@@ -90,7 +92,8 @@ truncated pushdata, and trailing script bytes before decoding launch events.
 CashVM proof marker and P2SH scriptSig parsing reject malformed bytecode before
 proving contract spends.
 CashVM proof scanning never falls back to a trusted local redeem script when
-the on-chain spend input is missing or malformed.
+the on-chain spend input is missing, malformed, or spends the wrong funding
+outpoint.
 AMM marker parsing rejects malformed bytecode and zero-sized trade markers
 before reserve audits build proof-pack receipts.
 Proof-pack receipts also reject malformed categories, malformed transaction

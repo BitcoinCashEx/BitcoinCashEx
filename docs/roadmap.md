@@ -68,6 +68,7 @@
   actions.
 - [x] Reject unexpected request body fields on fixed backend-signed POST
   actions.
+- [x] Validate the local demo server port before listening.
 - [x] Add fail-fast BCHN RPC environment validation for booleans, URLs,
   credentials, timeouts, and minimum-version policy.
 - [x] Validate BCHN JSON-RPC response shape before trusting returned results.
@@ -84,6 +85,7 @@
   proving contract spends.
 - [x] Require on-chain CashVM proof spends to reveal a parseable redeem script
   instead of falling back to trusted local contract data.
+- [x] Bind CashVM proof scans to the expected vout-0 funding outpoint.
 - [x] Reject malformed AMM marker bytecode and zero-sized AMM trade markers
   before reserve audits build proof-pack receipts.
 - [x] Add forged audit-pair and malformed txid checks to AMM proof-pack

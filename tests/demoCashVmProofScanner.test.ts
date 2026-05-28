@@ -18,7 +18,13 @@ describe("demo CashVM proof scanner", () => {
 
   const proofTx = (scriptSigHex?: string): DemoCashVmProofTx => ({
     txid: spendTxid,
-    vin: [{ ...(scriptSigHex === undefined ? {} : { scriptSig: { hex: scriptSigHex } }), txid: contractTxid }],
+    vin: [
+      {
+        ...(scriptSigHex === undefined ? {} : { scriptSig: { hex: scriptSigHex } }),
+        txid: contractTxid,
+        vout: 0
+      }
+    ],
     vout: [{ scriptPubKey: { hex: proofScript } }]
   });
 
@@ -41,7 +47,20 @@ describe("demo CashVM proof scanner", () => {
       extractDemoCashVmProofsFromTx(
         {
           txid: spendTxid,
-          vin: [{ scriptSig: { hex: "0151" }, txid: "ef".repeat(32) }],
+          vin: [{ scriptSig: { hex: "0151" }, txid: "ef".repeat(32), vout: 0 }],
+          vout: [{ scriptPubKey: { hex: proofScript } }]
+        },
+        7
+      )
+    ).toEqual([]);
+  });
+
+  it("does not bind proof records to a different contract output index", () => {
+    expect(
+      extractDemoCashVmProofsFromTx(
+        {
+          txid: spendTxid,
+          vin: [{ scriptSig: { hex: "0151" }, txid: contractTxid, vout: 1 }],
           vout: [{ scriptPubKey: { hex: proofScript } }]
         },
         7

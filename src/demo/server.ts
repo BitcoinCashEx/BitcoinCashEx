@@ -15,8 +15,9 @@ import {
 } from "./chain.js";
 import { buyLaunchTokens, graduateTokenLaunch, sellLaunchTokens } from "../defi/launchpad.js";
 import { DemoHttpRequestError, parseDemoEmptyJsonBody, parseDemoJsonBody, positiveBigintBody } from "./httpValidation.js";
+import { parseDemoServerPort } from "./serverConfig.js";
 
-const port = Number.parseInt(process.env.BCHEX_DEMO_PORT ?? "3000", 10);
+const port = parseDemoServerPort(process.env.BCHEX_DEMO_PORT);
 
 const json = (response: http.ServerResponse, status: number, payload: unknown): void => {
   response.writeHead(status, {

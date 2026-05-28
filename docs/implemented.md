@@ -247,7 +247,8 @@ covenant that enforces the AMM reserve transition inside CashVM.
 - CashVM proof marker and P2SH scriptSig parsing reject malformed hex and
   truncated pushdata before proving contract spends.
 - CashVM proof scanning never falls back to a trusted local redeem script when
-  the on-chain spend input is missing or malformed.
+  the on-chain spend input is missing, malformed, or spends the wrong funding
+  outpoint.
 - AMM marker parsing rejects malformed bytecode and zero-sized trade markers
   before reserve audits build proof-pack receipts.
 - `/api/state.launchAmmProofPack` verifies the launch CREATE/GRADUATE events,
@@ -272,6 +273,8 @@ covenant that enforces the AMM reserve transition inside CashVM.
 - Backend-signed POST actions reject duplicate request framing headers before
   reading action bodies.
 - Fixed-action POST routes reject unexpected body fields before backend signing.
+- The demo server port is validated as an explicit local TCP port before
+  listening.
 - `/tx/<txid>` acts as a local transaction explorer for the mined transaction;
   launch event pages include decoded event data, and AMM swap pages include a
   compact AMM/CashVM proof summary, decoded trade marker, reserve audit data,
@@ -301,8 +304,8 @@ npm run node:health
 
 Current local result:
 
-- 18 test files.
-- 119 unit tests.
+- 19 test files.
+- 123 unit tests.
 - TypeScript strict mode passes.
 - Build passes.
 - npm audit reports 0 vulnerabilities.
